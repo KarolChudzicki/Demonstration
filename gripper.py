@@ -1,4 +1,4 @@
-import serial
+import serial #pyserial
 import time
 import binascii
 
