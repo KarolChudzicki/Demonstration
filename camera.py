@@ -3,6 +3,8 @@ import time
 import numpy as np
 import imutils #imutils
 import math
+import calibration as calib
+import sliders_hsv
 
 ql = 0.001
 cap = cv.VideoCapture(0) 
@@ -13,65 +15,58 @@ average2 = []
 moving_avg_len2 = 10
 angle = 0
 sum_loop = 0
+
+
+# Get camera calibration parameters
+calibration_result = calib.run()
+
+if calibration_result is None:
+    print("Calibration failed or no chessboard corners detected.")
+    exit()
+else:
+    camera_matrix, dist_coeffs, rvecs, tvecs = calibration_result
+
+sliders_hsv.init(50,50,50,5)
+
 while True:
     (ret, frame) = cap.read()
     if ret:
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        image = np.copy(frame)
-
+        
         # Draw stuff for assistance
         height, width = frame.shape[:2]
         center_x = width // 2
         center_y = height // 2
-        cv.rectangle(frame, (center_x + 100, center_y + 100), (center_x - 100, center_y - 100), (255,255,255), 1)
-
-        cv.circle(frame, (center_x, center_y), 5, (255,255,255), 2)
-
-        # HSV ranges
-        red_lower1 = np.array([0, 150, 100])
-        red_upper1 = np.array([10, 255, 255])
-
-        red_lower2 = np.array([170, 150, 100])
-        red_upper2 = np.array([180, 255, 255])
-
-        green_lower = np.array([35, 100, 100])
-        green_upper = np.array([85, 255, 255])
-
-        # Create masks for each color
-        mask1_red = cv.inRange(frame_hsv, red_lower1, red_upper1)
-        mask2_red = cv.inRange(frame_hsv, red_lower2, red_upper2)
-
-        mask_green = cv.inRange(frame_hsv, green_lower, green_upper)
-
-
-        mask_red = mask1_red | mask2_red
-        mask = mask_green
-
-        # Apply the mask to the original image to extract red regions
-        result = cv.bitwise_and(frame, frame, mask=mask)
         
-        frame_gray = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
-        #Adaptive Histogram Equalization
-        #Enhances contrast, which can be especially useful if the image has varying lighting conditions.
-        #clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        #frame_gray = clahe.apply(frame_gray)
-        frame_blur = cv.GaussianBlur(frame_gray, (9,9), 0)
-        _, frame_blur = cv.threshold(frame_blur, 0, 255, cv.THRESH_BINARY)
+        new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, dist_coeffs, (width, height), 1, (width, height))
 
-        edges = cv.Canny(frame_blur, 50, 200)
+        # Undistort the image
+        undistorted_img = cv.undistort(frame, camera_matrix, dist_coeffs, None, new_camera_matrix)
+
+        
+        # Crop the image to the valid region of interest
+        x, y, w, h = roi
+        undistorted_img = undistorted_img[y:y+h, x:x+w]
+        
+        #image = np.copy(frame)
+
+        frame, result, frame_thresh = sliders_hsv.sliders(undistorted_img)
+        
+        
+
+        edges = cv.Canny(frame_thresh, 50, 200)
             
-        contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
         
         for c in contours:
             #peri = cv.arcLength(c, True)
             area = cv.contourArea(c)
-            if area > 0:
+            if area > 1000:
                 (x,y),radius = cv.minEnclosingCircle(c)
                 center = (int(x),int(y))
                 cv.circle(frame,center,2,(255,0,0),2)
-                #radius = int(radius)
-                #cv.circle(frame,center,radius,(0,255,0),2)
+
                 
                 hull = cv.convexHull(c)
 
@@ -79,7 +74,7 @@ while True:
                 cv.drawContours(frame, [hull], -1, (0, 255, 0), 2)  # Draw the convex hull in green
                 
                 # Approximate the convex hull to simplify it to a polygon with straight lines
-                epsilon = 0.02 * cv.arcLength(hull, True)  # Precision of approximation
+                epsilon = 0.01 * cv.arcLength(hull, True)  # Precision of approximation
                 approx_poly = cv.approxPolyDP(hull, epsilon, True)
 
                 # Draw the approximated polygon
@@ -88,6 +83,7 @@ while True:
                                
                 rect = cv.minAreaRect(c)  # rect contains (center, (width, height), angle)
         
+                '''
                 # Unpack the rectangle data
                 center, size, angle_rect = rect
                 area_rect = size[0] * size[1]
@@ -95,8 +91,6 @@ while True:
                 # Draw the bounding box for visualization
                 box = cv.boxPoints(rect)  # Get 4 corners of the rectangle
                 box = np.int0(box)        # Convert to integer points
-                #cv.drawContours(frame, [box], 0, (0, 255, 0), 2)
-                
                 cv.putText(frame, str(round(size[0]/size[1],4)), (100,100), cv.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
                 
                 if radius > 0:
@@ -115,19 +109,11 @@ while True:
                     angle = 45 * (average1[len(average1)-1] - 0.68)/(0.81-0.68)
                         
                     actual_angle = round(sum(average2)/len(average2)/5)*5
-                    #print(average1[len(average1)-1])
-                    #print(actual_angle)
-                    
-                
-                    
-                    
-                            
-            
-                
-
-                
-
-        cv.imshow('img1',edges)
+                '''                      
+                           
+        cv.circle(frame, (center_x, center_y), 5, (255,255,255), 2)
+        cv.imshow('img1',frame)
+        cv.imshow('esges',edges)
     else:
         print("Camera error")
         break
