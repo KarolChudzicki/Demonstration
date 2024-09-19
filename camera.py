@@ -45,20 +45,16 @@ while True:
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         
-        # Draw stuff for assistance
-        height, width = frame.shape[:2]
-        center_x = width // 2
-        center_y = height // 2
         
-        new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, dist_coeffs, (width, height), 1, (width, height))
+        new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, dist_coeffs, (1920, 1080), 1, (1920, 1080))
 
         # Undistort the image
         undistorted_img = cv.undistort(frame, camera_matrix, dist_coeffs, None, new_camera_matrix)
 
         
         # Crop the image to the valid region of interest
-        #x, y, w, h = roi
-        #undistorted_img = undistorted_img[y:y+h, x:x+w]
+        x, y, w, h = roi
+        undistorted_img = undistorted_img[y:y+h, x:x+w]
         
         #image = np.copy(frame)
 
@@ -74,7 +70,7 @@ while True:
         for c in contours:
             #peri = cv.arcLength(c, True)
             area = cv.contourArea(c)
-            if area > 1000:
+            if area > 100:
                 (x,y),radius = cv.minEnclosingCircle(c)
                 center = (int(x),int(y))
                 cv.circle(frame,center,2,(255,0,0),2)
@@ -125,7 +121,7 @@ while True:
         
                      
                            
-        cv.circle(frame, (center_x, center_y), 5, (255,255,255), 2)
+        #cv.circle(frame, (x//2, y//2), 5, (255,255,255), 2)
         cv.imshow('img1',frame)
         cv.imshow('esges',edges)
     else:

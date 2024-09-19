@@ -3,6 +3,8 @@ import numpy as np
 import glob
 
 
+
+
 def run():
     #======================= CHESSBOARD PARAMETERS =======================#
     chessboard_size = (8, 12)
@@ -35,7 +37,7 @@ def run():
             
             # Draw and display the corners on the chessboard image
             cv.drawChessboardCorners(img, chessboard_size, corners, ret)
-            cv.imshow('Chessboard', img)
+            #cv.imshow('Chessboard', img)
             cv.waitKey(100)
         else:
             print(f"Chessboard corners not detected in {image}")
@@ -44,6 +46,7 @@ def run():
 
 
     ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
+    print(camera_matrix, dist_coeffs, rvecs, tvecs)
     
     if ret:
         return camera_matrix, dist_coeffs, rvecs, tvecs
