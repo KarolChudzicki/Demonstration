@@ -1,7 +1,13 @@
 import cv2 as cv
+import numpy as np
 
 def nothing(x):
     pass
+
+
+kernel = np.array([[0, -1, 0],
+                    [-1, 5,-1],
+                    [0, -1, 0]])
 
 # Create a window
 def init(h_l, s_l, v_l, blur):
@@ -38,9 +44,14 @@ def sliders(frame):
     lower_bound = (h_l, s_l, v_l)
     upper_bound = (h_u, s_u, v_u)
 
-
+    #hsv = cv.filter2D(hsv, -1, kernel)
+    #kernel = np.ones((gauss, gauss), np.uint8)
+    #hsv = cv.dilate(hsv, kernel, iterations=1)
+    
     mask = cv.inRange(hsv, lower_bound, upper_bound)
     result = cv.bitwise_and(frame, frame, mask=mask)
+    
+    
     
     _, frame_thresh = cv.threshold(result, 0, 255, cv.THRESH_BINARY)
         
