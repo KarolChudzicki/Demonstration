@@ -22,10 +22,15 @@ def init(h_l, s_l, v_l, blur):
     cv.createTrackbar('S Upper', 'HSV Selector', 255, 255, nothing)
     cv.createTrackbar('V Upper', 'HSV Selector', 255, 255, nothing)
     cv.createTrackbar('Blur', 'HSV Selector', 0, 15, nothing)
-    cv.createTrackbar('Sigma X', 'HSV Selector', 0, 100, nothing)
     cv.createTrackbar('T Upper', 'HSV Selector', 0, 255, nothing)
     cv.createTrackbar('T Lower', 'HSV Selector', 0, 255, nothing)
-    cv.createTrackbar('Kernel for opening', 'HSV Selector', 0, 15, nothing)
+    
+    cv.createTrackbar('HL Thresh', 'HSV Selector', 0, 255, nothing)
+    cv.createTrackbar('HL min length', 'HSV Selector', 0, 255, nothing)
+    cv.createTrackbar('HL max gap', 'HSV Selector', 0, 255, nothing)
+    
+    cv.createTrackbar('Erosion', 'HSV Selector', 0, 50, nothing)
+    cv.createTrackbar('Dilation', 'HSV Selector', 0, 50, nothing)
     
     cv.setTrackbarPos('H Lower', 'HSV Selector', h_l)
     cv.setTrackbarPos('S Lower', 'HSV Selector', s_l) 
@@ -33,7 +38,10 @@ def init(h_l, s_l, v_l, blur):
     cv.setTrackbarPos('Blur', 'HSV Selector', blur)
     cv.setTrackbarPos('T Upper', 'HSV Selector', 255)
     cv.setTrackbarPos('T Lower', 'HSV Selector', 1)
-    cv.setTrackbarPos('Kernel for opening', 'HSV Selector', 2)
+    
+    cv.setTrackbarPos('HL Thresh', 'HSV Selector', 25)
+    cv.setTrackbarPos('HL min length', 'HSV Selector', 15)
+    cv.setTrackbarPos('HL max gap', 'HSV Selector', 50)
     
 
 
@@ -46,23 +54,28 @@ def sliders(frame):
     v_u = cv.getTrackbarPos('V Upper', 'HSV Selector')
     gauss = cv.getTrackbarPos('Blur', 'HSV Selector')
     gauss = gauss * 2 + 3
-    sigmaX = cv.getTrackbarPos('Sigma X','HSV Selector')
-    sigmaX = sigmaX / 100 + 0.1
-    frame = cv.GaussianBlur(frame, (gauss,gauss), 0)
-    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+    
     
     
     t_u = cv.getTrackbarPos('T Upper','HSV Selector')
     t_l = cv.getTrackbarPos('T Lower','HSV Selector')
-    opening = cv.getTrackbarPos('Kernel for opening', 'HSV Selector')
-    opening = opening * 2 + 3
+
+    
+    
+    hlt = cv.getTrackbarPos('HL Thresh', 'HSV Selector')
+    hlm = cv.getTrackbarPos('HL min length', 'HSV Selector')
+    hlg = cv.getTrackbarPos('HL max gap', 'HSV Selector')
+    er = cv.getTrackbarPos('Erosion', 'HSV Selector')
+    di = cv.getTrackbarPos('Dilation', 'HSV Selector')
 
     lower_bound = (h_l, s_l, v_l)
     upper_bound = (h_u, s_u, v_u)
 
-    #hsv = cv.filter2D(hsv, -1, kernel)
-    #kernel = np.ones((gauss, gauss), np.uint8)
-    #hsv = cv.dilate(hsv, kernel, iterations=1)
+
+    frame = cv.GaussianBlur(frame, (gauss,gauss), 0)
+    frame = cv.bilateralFilter(frame, 9, 75, 75)
+    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+    
     
     mask = cv.inRange(hsv, lower_bound, upper_bound)
     result = cv.bitwise_and(frame, frame, mask=mask)
@@ -70,21 +83,26 @@ def sliders(frame):
     gray_result = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
     
     
-    frame_thresh = cv.threshold(gray_result, t_l, t_u, cv.THRESH_BINARY)[1]
     
-    kernel = np.ones((opening, opening), np.uint8)
+    #frame_thresh = cv.threshold(gray_result, t_l, t_u, cv.THRESH_BINARY)[1]
+    frame_thresh = cv.threshold(gray_result,t_l,t_u,cv.THRESH_BINARY+cv.THRESH_OTSU)[1]
+    
+    #frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 3, 2)
+    
+    kernel = np.ones((3, 3), np.uint8)
     
     # Apply erosion followed by dilation (opening)
-    eroded = cv.erode(frame_thresh, kernel, iterations=1)
-    opened = cv.dilate(eroded, kernel, iterations=1)
+    eroded = cv.erode(frame_thresh, kernel, iterations=er)
+    #opened = cv.morphologyEx(eroded, cv.MORPH_CLOSE, kernel)
+
     
-    # Sharpening kernel
-    kernel_sharpen = np.array([[-1, -1, -1],
-                               [-1,  9,- 1],
-                               [-1, -1, -1]])
-    # Applying the sharpening filter
-    opened = cv.filter2D(opened, -1, kernel_sharpen)
+    edges = cv.Canny(eroded, 150, 200)
+    edges = cv.dilate(edges, np.ones((3, 3), np.uint8), iterations=di)
+    
+    
+    
+    lines = cv.HoughLinesP(edges, 1, np.pi / 180, hlt, minLineLength=hlm, maxLineGap=hlg)
         
-    return frame, result, opened
+    return frame, result, edges, lines
 
 
