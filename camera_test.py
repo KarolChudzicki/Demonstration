@@ -76,9 +76,8 @@ width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
 xyz = np.empty((0,3))
-angles = []
+angles = 0
 coordinates = 0
-approx = []
 
 L = 30  # The size of the cube (known)
 P = L*math.sqrt(2)/2
@@ -214,8 +213,7 @@ sliders_hsv.init(50,40,50,2)
 
 
 #================================ MAIN LOOP ================================
-def camera():
-    global xyz, angles, coordinates, approx
+while True:
     (ret, frame) = cap.read()
     if ret:
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
@@ -257,7 +255,6 @@ def camera():
                 elif len(approx) == 5:
                     approx = sort_points(approx,5)
                     coordinates, angles = coords(cube_points2, approx, frame)
-                    
                 else:
                     print("Error - incorrect number of corners")
                 
@@ -297,15 +294,18 @@ def camera():
         if coordinates is None:
             coordinates = -1
         
-        return coordinates, angles, frame, edges, len(approx)   
+        print(coordinates)
+        cv.imshow('img1',frame)
+        cv.imshow('edges',edges)  
         
 
     else:
         print("Camera error")
-        return 0,0,0,0,0
+        
 
     
-
+    if cv.waitKey(1) & 0xFF == ord('q'):
+        break
 
 
 

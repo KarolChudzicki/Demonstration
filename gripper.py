@@ -3,9 +3,6 @@ import time
 import binascii
 
 
-
-
-
 counter = 0
 gripper_opening = 85
 

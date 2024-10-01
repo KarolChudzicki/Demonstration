@@ -92,7 +92,7 @@ def sliders(frame):
     kernel = np.ones((3, 3), np.uint8)
     
     # Apply erosion followed by dilation (opening)
-    eroded = cv.erode(frame_thresh, kernel, iterations=er)
+    eroded = cv.erode(frame_thresh, kernel, iterations=2)
     #opened = cv.morphologyEx(eroded, cv.MORPH_CLOSE, kernel)
 
     
