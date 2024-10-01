@@ -75,6 +75,7 @@ width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
 xyz = np.empty((0,3))
+angles = 0
 
 L = 30  # The size of the cube (known)
 P = L*math.sqrt(2)/2
@@ -95,7 +96,7 @@ cube_points2 = np.array([
 ], dtype=np.float32)
 
 
-def coords(points, approx):
+def coords(points, approx, frame):
     image_points = np.array([point[0] for point in approx], dtype=np.float32)
     # Maybe use cv.SOLVEPNP_P3P, but it only works for 4 points cv.SOLVEPNP_EPNP
     if len(approx) == 4:
@@ -108,9 +109,9 @@ def coords(points, approx):
         cube_center_object_space = np.mean(points, axis=0)
         cube_center_camera_space = np.dot(rotation_matrix, cube_center_object_space.reshape(-1, 1)) + translation_vector
 
-        # Calculate actual coords in real world
-        rotation_matrix_inv = np.linalg.inv(rotation_matrix)
-        cube_center_world_space = np.dot(rotation_matrix_inv, cube_center_camera_space)
+        
+        coordinates_camera_space = np.round(cube_center_camera_space.ravel()[:3]).astype(int)
+
         
             
         # Yaw, pitch, roll
@@ -125,7 +126,16 @@ def coords(points, approx):
             yaw = math.atan2(R[1, 0], R[0, 0])
             pitch = math.atan2(-R[2, 0], math.sqrt(R[2, 1]**2 + R[2, 2]**2))
             roll = math.atan2(R[2, 1], R[2, 2])
-
+            
+            Ry = [[math.cos(roll) , 0, math.sin(roll)],
+                 [              0, 1,              0],
+                 [-math.sin(roll), 0, math.cos(roll)]]
+            Rx = [[1,              0,               0],
+                  [0, math.cos(roll), -math.sin(roll)],
+                  [0, math.sin(roll), math.cos(roll)]]
+            
+            
+            Pworld = np.transpose(Rx) @ coordinates_camera_space
 
             yaw = round(np.degrees(yaw))
             pitch = round(np.degrees(pitch))
@@ -148,8 +158,7 @@ def coords(points, approx):
             print(f"Error in angle calculation: {e}")
             return None
 
-        coordinates = np.round(cube_center_world_space.ravel()).astype(int)
-        coordinates = [coordinates[0], coordinates[1], coordinates[2]]
+        coordinates = np.round(Pworld.ravel()[:3]).astype(int).tolist()
         angles = [yaw, pitch, roll]
         
         return coordinates, angles
@@ -198,7 +207,8 @@ sliders_hsv.init(50,40,50,2)
 
 
 #================================ MAIN LOOP ================================
-while True:
+def camera():
+    global xyz, angles
     (ret, frame) = cap.read()
     if ret:
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
@@ -232,14 +242,14 @@ while True:
             if cv.contourArea(contour) > 200 and len(approx) < 7:
                 if len(approx) == 6:
                     approx = sort_points(approx,6)
-                    coordinates, angles = coords(cube_points1, approx)
+                    coordinates, angles = coords(cube_points1, approx, frame)
                 
                 elif len(approx) == 4:
                     approx = sort_points(approx,4)
-                    coordinates, angles = coords(cube_points2, approx)
+                    coordinates, angles = coords(cube_points2, approx, frame)
                 elif len(approx) == 5:
                     approx = sort_points(approx,5)
-                    coordinates, angles = coords(cube_points2, approx)
+                    coordinates, angles = coords(cube_points2, approx, frame)
                 else:
                     print("Error - incorrect number of corners")
                 
@@ -262,15 +272,13 @@ while True:
                         std_dev = np.std(xyz, axis = 0)
                         score = np.abs((xyz-mean)/std_dev)
                             
-                        xyz = xyz[(score > 0).all(axis=1)] 
-                        if xyz.shape[0] > 1:
-                            print("Cube Center (relative to the camera plane):",xyz[-1], " Yaw, pitch and roll of the cube:", 0)
-                        
-                #print(xyz)
-                
-                    
+                        #xyz = xyz[(score > 0).all(axis=1)] 
+                    if xyz.shape[0] > 1:
+                            print("Cube Center (relative to the camera plane):",xyz[-1], " Yaw, pitch and roll of the cube:", angles)
+                            
+
         
-                           
+         
         # Draw coordinate system
         cv.arrowedLine(frame, (10,10), (10,60), (255,255,0), 2)
         cv.putText(frame, 'Y', (15,60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 2)
@@ -278,15 +286,15 @@ while True:
         cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
         
         
+        return xyz, angles, frame, edges    
         
-        cv.imshow('img1',frame)
-        cv.imshow('esges',edges)
+
     else:
         print("Camera error")
-        break
+        return 0,0,0,0
+
     
-    if cv.waitKey(1) & 0xFF == ord('q'):
-        break
+
 
 
 

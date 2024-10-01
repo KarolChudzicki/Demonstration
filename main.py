@@ -2,15 +2,20 @@ import socket
 import time
 import math
 import gripper
-
+import camera_side
+import sliders_hsv
+import cv2 as cv
 
 
 print("Start : %s") # % time.ctime()
 
 HOST1 = '192.38.66.249'        # UR5
 PORT1 = 30003              # The same port as used by the server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST1, PORT1))
+#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#s.connect((HOST1, PORT1))
+
+#==================== VARIABLES/ ====================
+
 
 #====================GRIPPER SETUP====================
 
@@ -64,32 +69,30 @@ def rSleep(time):
 
 
 #====================CODE====================
-movej(pos3, 0.2, 0.15)
+#movej(pos3, 0.2, 0.15)
 #s.send(b'get_actual_tcp_pose()\n')
 #s.send(b'popup(get_actual_tcp_pose(), warning = False, error = False, blocking = False)\n')
 #s.send(b'movep(get_actual_tcp_pose(), 0.2, 0.1)\n')
 
 
-gripper.activate()
-print("GRIPPER ACTIVE")
-gripper.close(0xFF, 0x1A, 0x10)
-gripper.open(0x00, 0xFF, 0xFF)
-gripper.close(0x4F, 0xFF, 0x10)
-gripper.open(0x00, 0xFF, 0xFF)
+#gripper.activate()
+#print("GRIPPER ACTIVE")
+#gripper.close(0xFF, 0x1A, 0x10)
+#gripper.open(0x00, 0xFF, 0xFF)
+#gripper.close(0x4F, 0xFF, 0x10)
+#gripper.open(0x00, 0xFF, 0xFF)
 
 
 
+while True:
+    
+    for i in range(30):
+        xzy, angles, frame, edges = camera_side.camera()
 
-"""
-movel(pos5, 0.2, speed, move_time)
-time.sleep(move_time)
-movel(pos6, 0.2, speed, move_time)
-time.sleep(move_time)
-movel(pos7, 0.2, speed, move_time)
-time.sleep(move_time)
-movel(pos5, 0.2, speed, move_time)
-s.close()
-
-"""
+    #cv.imshow('img1',frame)
+    #cv.imshow('edges',edges)
+    
+    if cv.waitKey(1) & 0xFF == ord('q'):
+        break
 
 

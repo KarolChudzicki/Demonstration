@@ -4,10 +4,14 @@ import binascii
 
 
 
-ser = serial.Serial(port='COM8', baudrate=115200, timeout=1, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, bytesize=8)
+
 
 counter = 0
 gripper_opening = 85
+
+def connect():
+    global ser
+    ser = serial.Serial(port='COM8', baudrate=115200, timeout=1, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, bytesize=8)
 
 
 
