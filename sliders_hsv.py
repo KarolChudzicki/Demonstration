@@ -5,14 +5,14 @@ def nothing(x):
     pass
 
 
-kernel = np.array([[0, -1, 0],
-                    [-1, 5,-1],
-                    [0, -1, 0]])
+
+
+
 
 # Create a window
-def init(h_l, s_l, v_l, blur):
+def init(h_l, s_l, v_l, s_u, v_u, bilD, bilC, bilS):
     cv.namedWindow('HSV Selector')
-    cv.resizeWindow('HSV Selector', 800, 600)
+    cv.resizeWindow('HSV Selector', 800, 700)
 
     # Create trackbars for HSV values
     cv.createTrackbar('H Lower', 'HSV Selector', 0, 179, nothing)
@@ -32,16 +32,25 @@ def init(h_l, s_l, v_l, blur):
     cv.createTrackbar('Erosion', 'HSV Selector', 0, 50, nothing)
     cv.createTrackbar('Dilation', 'HSV Selector', 0, 50, nothing)
     
+    cv.createTrackbar('Bil D', 'HSV Selector', 1, 20, nothing)
+    cv.createTrackbar('Bil Color', 'HSV Selector', 1, 200, nothing)
+    cv.createTrackbar('Bil Space', 'HSV Selector', 1, 200, nothing)
+    
     cv.setTrackbarPos('H Lower', 'HSV Selector', h_l)
     cv.setTrackbarPos('S Lower', 'HSV Selector', s_l) 
-    cv.setTrackbarPos('V Lower', 'HSV Selector', v_l) 
-    cv.setTrackbarPos('Blur', 'HSV Selector', blur)
+    cv.setTrackbarPos('V Lower', 'HSV Selector', v_l)
+    cv.setTrackbarPos('S Lower', 'HSV Selector', s_u) 
+    cv.setTrackbarPos('V Lower', 'HSV Selector', v_u)  
     cv.setTrackbarPos('T Upper', 'HSV Selector', 255)
     cv.setTrackbarPos('T Lower', 'HSV Selector', 1)
     
     cv.setTrackbarPos('HL Thresh', 'HSV Selector', 25)
     cv.setTrackbarPos('HL min length', 'HSV Selector', 15)
     cv.setTrackbarPos('HL max gap', 'HSV Selector', 50)
+    
+    cv.setTrackbarPos('Bil D', 'HSV Selector', bilD)
+    cv.setTrackbarPos('Bil Color', 'HSV Selector', bilC)
+    cv.setTrackbarPos('Bil Space', 'HSV Selector', bilS)
     
 
 
@@ -71,38 +80,53 @@ def sliders(frame):
     lower_bound = (h_l, s_l, v_l)
     upper_bound = (h_u, s_u, v_u)
 
+    bilD = cv.getTrackbarPos('Bil D', 'HSV Selector')
+    bilC = cv.getTrackbarPos('Bil Color', 'HSV Selector')
+    bilS = cv.getTrackbarPos('Bil Space', 'HSV Selector')
 
-    frame = cv.GaussianBlur(frame, (gauss,gauss), 0)
-    frame = cv.bilateralFilter(frame, 9, 75, 75)
-    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+
     
+    #Bilateral filtering to reduce noice but keep the corners and edges intact
+    frame = cv.bilateralFilter(frame, 9, 90, 90)
+
     
+    # Applying mask
+    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)    
     mask = cv.inRange(hsv, lower_bound, upper_bound)
     result = cv.bitwise_and(frame, frame, mask=mask)
     
     gray_result = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
     
     
+
     
-    #frame_thresh = cv.threshold(gray_result, t_l, t_u, cv.THRESH_BINARY)[1]
-    frame_thresh = cv.threshold(gray_result,t_l,t_u,cv.THRESH_BINARY+cv.THRESH_OTSU)[1]
+    # Thresholding the image
+    frame_thresh = cv.threshold(gray_result,t_l,t_u,cv.THRESH_OTSU)[1]
     
-    #frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 3, 2)
+    #frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4)
+    frame_thresh = cv.medianBlur(frame_thresh, 5)
+    
     
     kernel = np.ones((3, 3), np.uint8)
     
     # Apply erosion followed by dilation (opening)
-    eroded = cv.erode(frame_thresh, kernel, iterations=2)
-    #opened = cv.morphologyEx(eroded, cv.MORPH_CLOSE, kernel)
-
+    sharpening_kernel = np.array([[0, -1, 0], 
+                              [-1, 5, -1], 
+                              [0, -1, 0]])
+    sharpened_image = cv.filter2D(frame_thresh, -1, sharpening_kernel)
     
-    edges = cv.Canny(eroded, 150, 200)
-    edges = cv.dilate(edges, np.ones((3, 3), np.uint8), iterations=di)
+    #opened = cv.morphologyEx(frame_thresh, cv.MORPH_OPEN, kernel)
+    
+    closed = cv.morphologyEx(sharpened_image, cv.MORPH_CLOSE, kernel)
+    
+    
+    edges = cv.Canny(closed, 150, 200)
+    edges = cv.dilate(edges, kernel, iterations=di)
+    edges = cv.erode(edges, kernel, iterations=er)
     
     
     
-    lines = cv.HoughLinesP(edges, 1, np.pi / 180, hlt, minLineLength=hlm, maxLineGap=hlg)
         
-    return frame, result, edges, lines
+    return frame, result, edges
 
 

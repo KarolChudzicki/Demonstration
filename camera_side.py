@@ -238,7 +238,7 @@ def camera():
     
         if contours:
             contour = max(contours, key=cv.contourArea)
-            epsilon = 0.02 * cv.arcLength(contour, True)
+            epsilon = 0.01 * cv.arcLength(contour, True)
             approx = cv.approxPolyDP(contour, epsilon, True)
             
             hull = cv.convexHull(contour)

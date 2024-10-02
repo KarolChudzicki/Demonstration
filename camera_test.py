@@ -81,20 +81,12 @@ coordinates = 0
 
 L = 30  # The size of the cube (known)
 P = L*math.sqrt(2)/2
-cube_points1 = np.array([
-    [0, 0, P*2],  # Corner 1
-    [-P, 0, P],  # Corner 2
-    [-P, L+2, P],  # Corner 3
-    [0, L+2, 0],  # Corner 4
-    [P, L+2, P],   # Corner 5
-    [P, 0, P]  # Corner 6
-], dtype=np.float32)
 
-cube_points2 = np.array([
-    [-L/2, 0, L],  # Corner 1
-    [-L/2, L+2, 0],  # Corner 2
-    [L/2, L+2, 0],  # Corner 3
-    [L/2, 0, L]   # Corner 4
+cube_points = np.array([
+    [-L/2, -L/2, 0],  # Corner 1
+    [-L/2, L/2, 0],  # Corner 2
+    [L/2, L/2, 0],  # Corner 3
+    [L/2, -L/2, 0]   # Corner 4
 ], dtype=np.float32)
 
 
@@ -103,8 +95,6 @@ def coords(points, approx, frame):
     # Maybe use cv.SOLVEPNP_P3P, but it only works for 4 points cv.SOLVEPNP_EPNP
     if len(approx) == 4:
         success, rotation_vector, translation_vector = cv.solvePnP(points, image_points, camera_matrix, distortion_coeffs, flags=cv.SOLVEPNP_P3P)
-    elif len(approx) == 6:
-        success, rotation_vector, translation_vector = cv.solvePnP(points, image_points, camera_matrix, distortion_coeffs, flags=cv.SOLVEPNP_EPNP)
     else:
         print("Incorrect number of corners")
     
@@ -113,11 +103,8 @@ def coords(points, approx, frame):
         cube_center_object_space = np.mean(points, axis=0)
         cube_center_camera_space = np.dot(rotation_matrix, cube_center_object_space.reshape(-1, 1)) + translation_vector
 
-        
         coordinates_camera_space = np.round(cube_center_camera_space.ravel()[:3]).astype(int)
 
-        
-            
         # Yaw, pitch, roll
         try:
             U, _, Vt = np.linalg.svd(rotation_matrix)
@@ -130,16 +117,6 @@ def coords(points, approx, frame):
             yaw = math.atan2(R[1, 0], R[0, 0])
             pitch = math.atan2(-R[2, 0], math.sqrt(R[2, 1]**2 + R[2, 2]**2))
             roll = math.atan2(R[2, 1], R[2, 2])
-            
-            Ry = [[math.cos(roll) , 0, math.sin(roll)],
-                 [              0, 1,              0],
-                 [-math.sin(roll), 0, math.cos(roll)]]
-            Rx = [[1,              0,               0],
-                  [0, math.cos(roll), -math.sin(roll)],
-                  [0, math.sin(roll), math.cos(roll)]]
-            
-            
-            Pworld = np.transpose(Rx) @ coordinates_camera_space
 
             yaw = round(np.degrees(yaw))
             pitch = round(np.degrees(pitch))
@@ -162,10 +139,10 @@ def coords(points, approx, frame):
             print(f"Error in angle calculation: {e}")
             return None
 
-        coordinates = np.round(Pworld.ravel()[:3]).astype(int).tolist()
+        coordinates = np.round(coordinates_camera_space.ravel()[:3]).astype(int).tolist()
         angles = [yaw, pitch, roll]
        
-        coordinates.pop(1)
+        coordinates.pop(2)
         return coordinates, angles
     else:
         print("Solve PNP error")
@@ -173,7 +150,7 @@ def coords(points, approx, frame):
 
 def sort_points(points, number):
     
-    if number == 4 or number == 5:
+    if number == 4:
         top_left = min(points, key=lambda point: point[0][0] + point[0][1])
         bottom_right = max(points, key=lambda point: point[0][0] + point[0][1])
         
@@ -182,26 +159,6 @@ def sort_points(points, number):
 
         return [top_left, bottom_left, bottom_right, top_right]
     
-    #if number == 5:
-        
-    
-        
-    
-    if number == 6:
-        top = min(points, key=lambda point: point[0][1])
-        bottom = max(points, key=lambda point: point[0][1])
-            
-        sort_by_x = sorted(points, key=lambda point: point[0][0])
-        left_points = sort_by_x[:2]
-        right_points = sort_by_x[4:]
-            
-        left_points_sorted_by_y = sorted(left_points, key=lambda point: point[0][1])
-        right_points_sorted_by_y = sorted(right_points, key=lambda point: point[0][1], reverse=True)
-            
-            
-        
-        return [top, left_points_sorted_by_y[0], left_points_sorted_by_y[1], bottom, right_points_sorted_by_y[0], right_points_sorted_by_y[1]]
-    
     else:
         print("Invalid number of points")
         return None
@@ -209,7 +166,7 @@ def sort_points(points, number):
 
     
 # Initialise the sliders
-sliders_hsv.init(50,40,50,2)
+sliders_hsv.init(50,40,50,140,90,9,90,90)
 
 
 #================================ MAIN LOOP ================================
@@ -230,7 +187,7 @@ while True:
         x, y, w, h = roi
         undistorted_img = undistorted_img[y:y+h, x:x+w]
 
-        frame, result, edges, lines = sliders_hsv.sliders(undistorted_img)
+        frame, result, edges = sliders_hsv.sliders(undistorted_img)
         contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
     
@@ -244,17 +201,15 @@ while True:
             # Draw the convex hull around the cube
             cv.drawContours(frame, [hull], -1, (0, 255, 0), 2)  # Draw the convex hull in green
 
-            if cv.contourArea(contour) > 200 and len(approx) < 7:
-                if len(approx) == 6:
-                    approx = sort_points(approx,6)
-                    coordinates, angles = coords(cube_points1, approx, frame)
-                
-                elif len(approx) == 4:
+            if cv.contourArea(contour) > 200:
+               
+                if len(approx) == 4:
                     approx = sort_points(approx,4)
-                    coordinates, angles = coords(cube_points2, approx, frame)
-                elif len(approx) == 5:
-                    approx = sort_points(approx,5)
-                    coordinates, angles = coords(cube_points2, approx, frame)
+                    coordinates, angles = coords(cube_points, approx, frame)
+                elif len(approx) > 4:
+                    while len(approx) > 4:
+                        epsilon *= 1.05
+                        approx = cv.approxPolyDP(contour, epsilon, True)
                 else:
                     print("Error - incorrect number of corners")
                 
@@ -264,23 +219,8 @@ while True:
                     x, y = corner.ravel()
                     cv.circle(frame, (x, y), 5, (0, 0, 255), -1)
                     cv.putText(frame, str(corner_cnt), (x + 10,y + 10), cv.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv.LINE_AA)
-                            
                     corner_cnt += 1
                     
-                # Coordinates processing (removing outliers)
-                '''
-                if coordinates != None:
-                    xyz = np.vstack([xyz,coordinates])
-                    if xyz.shape[0] > 20:
-                        xyz = np.delete(xyz, 0, axis = 0)
-                        mean = np.mean(xyz, axis = 0)
-                        std_dev = np.std(xyz, axis = 0)
-                        score = np.abs((xyz-mean)/std_dev)
-                            
-                        #xyz = xyz[(score > 0).all(axis=1)] 
-                    if xyz.shape[0] > 1:
-                            print("Cube Center (relative to the camera plane):",xyz[-1], " Yaw, pitch and roll of the cube:", angles)
-                '''
                             
 
         
@@ -291,8 +231,6 @@ while True:
         cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
         cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
         
-        if coordinates is None:
-            coordinates = -1
         
         print(coordinates)
         cv.imshow('img1',frame)
