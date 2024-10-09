@@ -65,12 +65,15 @@ translation_vectors = np.array([
 
 # Parameters
 ql = 0.001
-cap = cv.VideoCapture(0) 
+cap = cv.VideoCapture(1) 
 previous_points = None
-
-
+s_l = 40
+v_l = 50
+area = 0
+aspect_ratio = 1
 angle = 0
 sum_loop = 0
+check_for_outliers = False
 
 width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -151,23 +154,37 @@ def coords(points, approx, frame):
 def sort_points(points, number):
     
     if number == 4:
-        top_left = min(points, key=lambda point: point[0][0] + point[0][1])
-        bottom_right = max(points, key=lambda point: point[0][0] + point[0][1])
+        points = np.array([point[0] for point in points])
+        center = np.round(np.mean(points, axis = 0))
         
-        top_right = max(points, key=lambda point: point[0][0] - point[0][1])
-        bottom_left = min(points, key=lambda point: point[0][0] - point[0][1])
-
-        return [top_left, bottom_left, bottom_right, top_right]
+        
+        
+        angles = np.arctan2(points[:,1] - center[1], points[:,0] - center[0])
+        sorted_by_ang = np.argsort(angles)
+        sorted_points_by_ang = points[sorted_by_ang]
+    
+        left = sorted_points_by_ang[0]
+        middle = sorted_points_by_ang[1]
+        right = sorted_points_by_ang[2]
+        bottom = sorted_points_by_ang[3]
+        
+        print("ANGLES -", sorted_by_ang)
+        
+        result = np.array([[left], [middle], [right], [bottom]])
+        
+        return result
     
     else:
         print("Invalid number of points")
         return None
 
 
+
+
     
 # Initialise the sliders
 sliders_hsv.init(50,40,50,140,90,9,90,90)
-
+mean_hsv = [50,40,50]
 
 #================================ MAIN LOOP ================================
 while True:
@@ -175,7 +192,6 @@ while True:
     if ret:
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        
         
         new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (width, height), 1, (width, height))
 
@@ -186,8 +202,25 @@ while True:
         # Crop the image to the valid region of interest
         x, y, w, h = roi
         undistorted_img = undistorted_img[y:y+h, x:x+w]
+        
+        # Convert image to LAB color space
+        lab = cv.cvtColor(undistorted_img, cv.COLOR_BGR2LAB)
 
-        frame, result, edges = sliders_hsv.sliders(undistorted_img)
+        # Split into L, A, and B channels
+        l, a, b = cv.split(lab)
+
+        # Apply CLAHE to the L channel
+        clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        l_clahe = clahe.apply(l)
+
+        # Merge the CLAHE-enhanced L channel back with A and B channels
+        lab_clahe = cv.merge((l_clahe, a, b))
+
+        # Convert back to BGR color space
+        final_img = cv.cvtColor(lab_clahe, cv.COLOR_LAB2BGR)
+                
+        
+        frame, result, edges = sliders_hsv.sliders(final_img, mean_hsv)
         contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
     
@@ -200,15 +233,27 @@ while True:
 
             # Draw the convex hull around the cube
             cv.drawContours(frame, [hull], -1, (0, 255, 0), 2)  # Draw the convex hull in green
+            #cv.drawContours(frame, [contour], -1, (255, 255, 0), 2)
 
             if cv.contourArea(contour) > 200:
-               
+                #outliers, lengths = check_for_outliers(approx, 10) 
+
                 if len(approx) == 4:
+                    area = cv.contourArea(contour)
+                    x, y, w, h = cv.boundingRect(contour)
+        
+                    mask = cv.inRange(result, (1, 1, 1), (255, 255, 255))
+                    mean_hsv = np.round(cv.mean(result, mask=mask)[:3])
+                    print(mean_hsv)
+                    
                     approx = sort_points(approx,4)
-                    coordinates, angles = coords(cube_points, approx, frame)
+                    try:
+                        coordinates, angles = coords(cube_points, approx, frame)
+                    except Exception as e:
+                        print(f"Coordinates error: {e}")
                 elif len(approx) > 4:
                     while len(approx) > 4:
-                        epsilon *= 1.05
+                        epsilon *= 1.1
                         approx = cv.approxPolyDP(contour, epsilon, True)
                 else:
                     print("Error - incorrect number of corners")
@@ -221,10 +266,7 @@ while True:
                     cv.putText(frame, str(corner_cnt), (x + 10,y + 10), cv.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv.LINE_AA)
                     corner_cnt += 1
                     
-                            
-
-        
-         
+                        
         # Draw coordinate system
         cv.arrowedLine(frame, (10,10), (10,60), (255,255,0), 2)
         cv.putText(frame, 'Y', (15,60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 2)
@@ -232,7 +274,7 @@ while True:
         cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
         
         
-        print(coordinates)
+        print(coordinates, angles)
         cv.imshow('img1',frame)
         cv.imshow('edges',edges)  
         
@@ -248,3 +290,21 @@ while True:
 
 
 
+'''
+def check_for_outliers(points, tolerance):
+    lengths = []
+    outliners = 0
+    i = 0
+    for p in points:
+        if i > 2:
+            length = math.sqrt((p[0][0]-points[0][0][0])**2 + (p[0][1]-points[0][0][1])**2)
+        else:
+            length = math.sqrt((p[0][0]-points[i+1][0][0])**2 + (p[0][1]-points[i+1][0][1])**2)
+        lengths = np.append(lengths, length)
+        i += 1
+    med = np.median(lengths)
+    for i in range(len(lengths)):
+        if abs(lengths[i] - med) > tolerance:
+            outliners += 1
+    return outliners, lengths
+'''

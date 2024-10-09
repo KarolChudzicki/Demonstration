@@ -21,7 +21,6 @@ def init(h_l, s_l, v_l, s_u, v_u, bilD, bilC, bilS):
     cv.createTrackbar('H Upper', 'HSV Selector', 179, 179, nothing)
     cv.createTrackbar('S Upper', 'HSV Selector', 255, 255, nothing)
     cv.createTrackbar('V Upper', 'HSV Selector', 255, 255, nothing)
-    cv.createTrackbar('Blur', 'HSV Selector', 0, 15, nothing)
     cv.createTrackbar('T Upper', 'HSV Selector', 0, 255, nothing)
     cv.createTrackbar('T Lower', 'HSV Selector', 0, 255, nothing)
     
@@ -54,28 +53,29 @@ def init(h_l, s_l, v_l, s_u, v_u, bilD, bilC, bilS):
     
 
 
-def sliders(frame):
+def sliders(frame, mean_hsv):
     h_l = cv.getTrackbarPos('H Lower', 'HSV Selector')
     s_l = cv.getTrackbarPos('S Lower', 'HSV Selector')
     v_l = cv.getTrackbarPos('V Lower', 'HSV Selector')
     h_u = cv.getTrackbarPos('H Upper', 'HSV Selector')
     s_u = cv.getTrackbarPos('S Upper', 'HSV Selector')
     v_u = cv.getTrackbarPos('V Upper', 'HSV Selector')
-    gauss = cv.getTrackbarPos('Blur', 'HSV Selector')
-    gauss = gauss * 2 + 3
-    
-    
     
     t_u = cv.getTrackbarPos('T Upper','HSV Selector')
     t_l = cv.getTrackbarPos('T Lower','HSV Selector')
 
-    
-    
     hlt = cv.getTrackbarPos('HL Thresh', 'HSV Selector')
     hlm = cv.getTrackbarPos('HL min length', 'HSV Selector')
     hlg = cv.getTrackbarPos('HL max gap', 'HSV Selector')
     er = cv.getTrackbarPos('Erosion', 'HSV Selector')
     di = cv.getTrackbarPos('Dilation', 'HSV Selector')
+    
+    #if mean_hsv[2] - 100 < 0:
+    #    v_l = 0
+    #else:
+    #    v_l = mean_hsv[2] - 100
+    
+
 
     lower_bound = (h_l, s_l, v_l)
     upper_bound = (h_u, s_u, v_u)
@@ -84,10 +84,9 @@ def sliders(frame):
     bilC = cv.getTrackbarPos('Bil Color', 'HSV Selector')
     bilS = cv.getTrackbarPos('Bil Space', 'HSV Selector')
 
-
     
     #Bilateral filtering to reduce noice but keep the corners and edges intact
-    frame = cv.bilateralFilter(frame, 9, 90, 90)
+    frame = cv.bilateralFilter(frame, bilD, bilC, bilS)
 
     
     # Applying mask
@@ -97,14 +96,13 @@ def sliders(frame):
     
     gray_result = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
     
-    
 
     
     # Thresholding the image
     frame_thresh = cv.threshold(gray_result,t_l,t_u,cv.THRESH_OTSU)[1]
     
     #frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4)
-    frame_thresh = cv.medianBlur(frame_thresh, 5)
+    frame_thresh = cv.medianBlur(frame_thresh, 3)
     
     
     kernel = np.ones((3, 3), np.uint8)
@@ -125,6 +123,7 @@ def sliders(frame):
     edges = cv.erode(edges, kernel, iterations=er)
     
     
+    result = cv.cvtColor(result, cv.COLOR_BGR2HSV)
     
         
     return frame, result, edges
