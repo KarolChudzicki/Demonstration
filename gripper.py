@@ -1,6 +1,7 @@
 import serial #pyserial
 import time
 import binascii
+import misc
 
 
 counter = 0
@@ -32,22 +33,6 @@ def activate():
             break
 
 #============COMMANDS============
-def modbusCrc(msg:str) -> int:
-    crc = 0xFFFF
-    for n in range(len(msg)):
-        crc ^= msg[n]
-        for i in range(8):
-            if crc & 1:
-                crc >>= 1
-                crc ^= 0xA001
-            else:
-                crc >>= 1
-    
-    crcl = (crc >> 8) & 0xFF
-    crch = crc & 0xFF
-    return crcl, crch
-
-
 def close(POSITION_REQUEST, SPEED, FORCE):
     data = ser.readline()
     ACTION_REQUEST = 0x09
@@ -57,7 +42,7 @@ def close(POSITION_REQUEST, SPEED, FORCE):
     command = [0x09, 0x10, 0x03, 0xE8, 0x00, 0x03, 0x06, ACTION_REQUEST, GRIPPER_OPTIONS1, GRIPPER_OPTIONS2, POSITION_REQUEST, SPEED, FORCE]
     
 
-    CRCL, CRCH =  modbusCrc(command)
+    CRCL, CRCH, _ =  misc.modbusCrc(command)
     command.append(CRCH)
     command.append(CRCL)
     print(command)
@@ -84,8 +69,7 @@ def open(POSITION_REQUEST, SPEED, FORCE):
     ACTION_REQUEST = 0x09
     GRIPPER_OPTIONS1 = 0x00
     GRIPPER_OPTIONS2 = 0x00
-    CRC1 = 0x72
-    CRC2 = 0x19
+    CRC2, CRC1, _ = misc.modbusCrc(command)
     command = [0x09, 0x10, 0x03, 0xE8, 0x00, 0x03, 0x06, ACTION_REQUEST, GRIPPER_OPTIONS1, GRIPPER_OPTIONS2, POSITION_REQUEST, SPEED, FORCE, CRC1, CRC2]
     ser.write(command)
     ser.readline()
