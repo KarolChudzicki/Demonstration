@@ -203,24 +203,24 @@ while True:
         x, y, w, h = roi
         undistorted_img = undistorted_img[y:y+h, x:x+w]
         
-        # Convert image to LAB color space
-        lab = cv.cvtColor(undistorted_img, cv.COLOR_BGR2LAB)
+        # # Convert image to LAB color space
+        # lab = cv.cvtColor(undistorted_img, cv.COLOR_BGR2LAB)
 
-        # Split into L, A, and B channels
-        l, a, b = cv.split(lab)
+        # # Split into L, A, and B channels
+        # l, a, b = cv.split(lab)
 
-        # Apply CLAHE to the L channel
-        clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        l_clahe = clahe.apply(l)
+        # # Apply CLAHE to the L channel
+        # clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        # l_clahe = clahe.apply(l)
 
-        # Merge the CLAHE-enhanced L channel back with A and B channels
-        lab_clahe = cv.merge((l_clahe, a, b))
+        # # Merge the CLAHE-enhanced L channel back with A and B channels
+        # lab_clahe = cv.merge((l_clahe, a, b))
 
-        # Convert back to BGR color space
-        final_img = cv.cvtColor(lab_clahe, cv.COLOR_LAB2BGR)
+        # # Convert back to BGR color space
+        # final_img = cv.cvtColor(lab_clahe, cv.COLOR_LAB2BGR)
                 
         
-        frame, result, edges = sliders_hsv.sliders(final_img, mean_hsv)
+        frame, result, edges = sliders_hsv.sliders(undistorted_img, mean_hsv)
         contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
     

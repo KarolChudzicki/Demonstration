@@ -70,10 +70,6 @@ def sliders(frame, mean_hsv):
     er = cv.getTrackbarPos('Erosion', 'HSV Selector')
     di = cv.getTrackbarPos('Dilation', 'HSV Selector')
     
-    #if mean_hsv[2] - 100 < 0:
-    #    v_l = 0
-    #else:
-    #    v_l = mean_hsv[2] - 100
     
 
 
@@ -99,9 +95,9 @@ def sliders(frame, mean_hsv):
 
     
     # Thresholding the image
-    frame_thresh = cv.threshold(gray_result,t_l,t_u,cv.THRESH_OTSU)[1]
+    #frame_thresh = cv.threshold(gray_result,t_l,t_u,cv.THRESH_OTSU)[1]
     
-    #frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4)
+    frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 4)
     frame_thresh = cv.medianBlur(frame_thresh, 3)
     
     
@@ -111,16 +107,18 @@ def sliders(frame, mean_hsv):
     sharpening_kernel = np.array([[0, -1, 0], 
                               [-1, 5, -1], 
                               [0, -1, 0]])
-    sharpened_image = cv.filter2D(frame_thresh, -1, sharpening_kernel)
+    #sharpened_image = cv.filter2D(frame_thresh, -1, sharpening_kernel)
     
     #opened = cv.morphologyEx(frame_thresh, cv.MORPH_OPEN, kernel)
     
-    closed = cv.morphologyEx(sharpened_image, cv.MORPH_CLOSE, kernel)
+    #closed = cv.morphologyEx(sharpened_image, cv.MORPH_CLOSE, kernel)
     
     
-    edges = cv.Canny(closed, 150, 200)
+    edges = cv.Canny(frame_thresh, 150, 200)
     edges = cv.dilate(edges, kernel, iterations=di)
     edges = cv.erode(edges, kernel, iterations=er)
+    
+    
     
     
     result = cv.cvtColor(result, cv.COLOR_BGR2HSV)
