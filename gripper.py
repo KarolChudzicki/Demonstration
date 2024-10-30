@@ -96,27 +96,3 @@ def pos_to_mm(position):
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    '''
-    while True:
-        time.sleep(0.01)
-        #ser.write(b'\x09\x03\x07\xD0\x00\x03\x04\x0E')
-        #ser.write(b'\x09\x10\x03\xE9\x00\x02\x04\x60\xE6\x3C\xC8\xEC\x7C')
-        #ser.write(b'\x09\x17\x07\xD0\x00\x02\x03\xE9\x00\x02\x04\x00\xE6\x3C\xC8\x2D\x0C')
-        ser.write(b'\x09\x04\x03\xE9\x00\x03\xEC\x7C')
-        data = ser.readline()
-        data = [hex(byte) for byte in data]
-        #first_two = int(data[3], 16)
-        #first_two = (first_two & 0b11000000) >> 6
-        print(data)
-        #if first_two != 0b00:
-        #    break
-        break
-    '''

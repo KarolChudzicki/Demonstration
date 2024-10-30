@@ -3,7 +3,6 @@ import time
 import numpy as np
 import imutils #imutils
 import math
-import sliders_hsv
 
 
 camera_matrix = np.array([
@@ -65,15 +64,15 @@ translation_vectors = np.array([
 
 # Parameters
 ql = 0.001
-cap = cv.VideoCapture(1) 
+cap = cv.VideoCapture(0) 
 previous_points = None
-s_l = 40
-v_l = 50
-area = 0
 aspect_ratio = 1
 angle = 0
 sum_loop = 0
 check_for_outliers = False
+cubeTopArea = 0
+saturationThresholdMask = 170
+cx = None
 
 width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -125,9 +124,6 @@ def coords(points, approx, frame):
             pitch = round(np.degrees(pitch))
             roll = round(np.degrees(roll))           
             
-            
-            if len(approx) == 6:
-                yaw += 45
 
             # Project the 3D points to 2D image points using the pose (rvec, tvec)
             img_points, _ = cv.projectPoints(points, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
@@ -145,6 +141,7 @@ def coords(points, approx, frame):
         coordinates = np.round(coordinates_camera_space.ravel()[:3]).astype(int).tolist()
         angles = [yaw, pitch, roll]
        
+       #Remove roll
         coordinates.pop(2)
         return coordinates, angles
     else:
@@ -156,9 +153,7 @@ def sort_points(points, number):
     if number == 4:
         points = np.array([point[0] for point in points])
         center = np.round(np.mean(points, axis = 0))
-        
-        
-        
+                
         angles = np.arctan2(points[:,1] - center[1], points[:,0] - center[0])
         sorted_by_ang = np.argsort(angles)
         sorted_points_by_ang = points[sorted_by_ang]
@@ -168,7 +163,7 @@ def sort_points(points, number):
         right = sorted_points_by_ang[2]
         bottom = sorted_points_by_ang[3]
         
-        print("ANGLES -", sorted_by_ang)
+        #print("ANGLES -", sorted_by_ang)
         
         result = np.array([[left], [middle], [right], [bottom]])
         
@@ -180,12 +175,6 @@ def sort_points(points, number):
 
 
 
-
-    
-# Initialise the sliders
-sliders_hsv.init(50,40,50,140,90,9,90,90)
-mean_hsv = [50,40,50]
-
 #================================ MAIN LOOP ================================
 while True:
     (ret, frame) = cap.read()
@@ -195,32 +184,51 @@ while True:
         
         new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (width, height), 1, (width, height))
 
-        # Undistort the image
+        # ==================== Undistort the image ====================
         undistorted_img = cv.undistort(frame, camera_matrix, distortion_coeffs, None, new_camera_matrix)
-
         
-        # Crop the image to the valid region of interest
+        # ==================== Crop the image to the valid region of interest ====================
         x, y, w, h = roi
         undistorted_img = undistorted_img[y:y+h, x:x+w]
         
-        # # Convert image to LAB color space
-        # lab = cv.cvtColor(undistorted_img, cv.COLOR_BGR2LAB)
-
-        # # Split into L, A, and B channels
-        # l, a, b = cv.split(lab)
-
-        # # Apply CLAHE to the L channel
-        # clahe = cv.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        # l_clahe = clahe.apply(l)
-
-        # # Merge the CLAHE-enhanced L channel back with A and B channels
-        # lab_clahe = cv.merge((l_clahe, a, b))
-
-        # # Convert back to BGR color space
-        # final_img = cv.cvtColor(lab_clahe, cv.COLOR_LAB2BGR)
-                
         
-        frame, result, edges = sliders_hsv.sliders(undistorted_img, mean_hsv)
+        # ==================== Masking and filtering ====================
+        #frame, result, edges = sliders_hsv.sliders(undistorted_img, mean_hsv, cubeTopArea)
+        saturationThresholdMax = 190
+        saturationThresholdMin = 75
+        middleOfThePicture = x + w // 2
+        a_forSaturationFunction = (saturationThresholdMax - saturationThresholdMin)/middleOfThePicture
+        
+        
+        if cx == None:
+            saturationThresholdMask = 190
+        else:
+            saturationThresholdMask = round(a_forSaturationFunction * abs(cx - middleOfThePicture) + saturationThresholdMin)
+        
+        #print("Current sat:", saturationThresholdMask)    
+        
+        lower_bound = (75, saturationThresholdMask, 170)
+        upper_bound = (255, 255, 255)
+
+        
+        #Bilateral filtering to reduce noice but keep the corners and edges intact
+        frame = cv.bilateralFilter(frame, 2, 50, 50)
+
+        
+        # ==================== Applying mask ====================
+        hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)    
+        mask = cv.inRange(hsv, lower_bound, upper_bound)
+        result = cv.bitwise_and(frame, frame, mask=mask)
+        
+        gray_result = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
+        
+        frame_thresh = cv.threshold(gray_result,1,255,cv.THRESH_OTSU)[1]
+        frame_thresh = cv.medianBlur(frame_thresh, 9)
+                
+        edges = cv.Canny(frame_thresh, 150, 200)
+        result = cv.cvtColor(result, cv.COLOR_BGR2HSV)
+        
+        
         contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
     
@@ -234,17 +242,23 @@ while True:
             # Draw the convex hull around the cube
             cv.drawContours(frame, [hull], -1, (0, 255, 0), 2)  # Draw the convex hull in green
             #cv.drawContours(frame, [contour], -1, (255, 255, 0), 2)
+            
+            # Calculating contour center x coordinate
+            M = cv.moments(contour)
+    
+            # Calculate centroid x
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+            else:
+                cx = 0
 
+            
             if cv.contourArea(contour) > 200:
-                #outliers, lengths = check_for_outliers(approx, 10) 
-
+                mask = cv.inRange(result, (1, 1, 1), (255, 255, 255))
+                mean_hsv = np.round(cv.mean(result, mask=mask)[:3])
+                
                 if len(approx) == 4:
-                    area = cv.contourArea(contour)
-                    x, y, w, h = cv.boundingRect(contour)
-        
-                    mask = cv.inRange(result, (1, 1, 1), (255, 255, 255))
-                    mean_hsv = np.round(cv.mean(result, mask=mask)[:3])
-                    print(mean_hsv)
+                    area = cv.contourArea(contour)                    
                     
                     approx = sort_points(approx,4)
                     try:
@@ -273,8 +287,8 @@ while True:
         cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
         cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
         
-        
-        print(coordinates, angles)
+        if coordinates != 0:
+            print(coordinates, angles[0])
         cv.imshow('img1',frame)
         cv.imshow('edges',edges)  
         
@@ -287,24 +301,3 @@ while True:
     if cv.waitKey(1) & 0xFF == ord('q'):
         break
 
-
-
-
-'''
-def check_for_outliers(points, tolerance):
-    lengths = []
-    outliners = 0
-    i = 0
-    for p in points:
-        if i > 2:
-            length = math.sqrt((p[0][0]-points[0][0][0])**2 + (p[0][1]-points[0][0][1])**2)
-        else:
-            length = math.sqrt((p[0][0]-points[i+1][0][0])**2 + (p[0][1]-points[i+1][0][1])**2)
-        lengths = np.append(lengths, length)
-        i += 1
-    med = np.median(lengths)
-    for i in range(len(lengths)):
-        if abs(lengths[i] - med) > tolerance:
-            outliners += 1
-    return outliners, lengths
-'''

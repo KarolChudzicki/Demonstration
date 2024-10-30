@@ -46,10 +46,10 @@ if client.connect():
         else:
             print("Incorrect speed value")
     
+    
     start_conveyor()
     set_speed(150)
-    set_direction(1)
-    #stop_conveyor()
+    set_direction(0)
 
 else:
     print("Failed to connect to the inverter")

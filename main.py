@@ -2,17 +2,16 @@ import socket
 import time
 import math
 import gripper
-import camera_side
-import sliders_hsv
 import cv2 as cv
 import numpy as np
+#import camera
 
 print("Start : %s") # % time.ctime()
 
-HOST1 = '192.38.66.249'        # UR5
+HOST1 = '192.38.66.227'        # UR5
 PORT1 = 30003              # The same port as used by the server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST1, PORT1))
+#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#s.connect((HOST1, PORT1))
 
 #==================== VARIABLES/ ====================
 xy = 0
@@ -75,59 +74,24 @@ def rSleep(time):
 
 
 #====================CODE====================
-movep(zeroPosUp, 0.2, 0.15)
+#movep(zeroPosUp, 0.2, 0.15)
 #s.send(b'get_actual_tcp_pose()\n')
 #s.send(b'popup(get_actual_tcp_pose(), warning = False, error = False, blocking = False)\n')
 #s.send(b'movep(get_actual_tcp_pose(), 0.2, 0.1)\n')
 gripper.connect()
 gripper.activate()
 print("GRIPPER ACTIVE")
-gripper.close(0xA5, 0xFF, 0x01)
+gripper.close(0xFF, 0xFF, 0x00)
 #gripper.open(0x00, 0xFF, 0xFF)
 #gripper.close(0x4F, 0xFF, 0x10)
 #gripper.open(0x00, 0xFF, 0xFF)
 
 
 
-while True:
-    
-    if cv.waitKey(1) & 0xFF == ord('c'):
-        while True:
-            xy, angles, frame, edges, corners = camera_side.camera()
-            cv.imshow('img1',frame)
-            cv.imshow('edges',edges)
-            print(corners)
-            if corners == 4 or corners == 6:
-                break
-        corners = 0
-        xy = ((np.array(xy) - np.array(xyZero))/1000).tolist()
-        if angles != []:
-            rotation = round(math.radians(angles[0]),2)
-        else:
-            rotation = 0
-        print(xy, rotation)
-        
-
-    
-    
-    if cv.waitKey(1) & 0xFF == ord('e'):
-        newPosUp = [0.044+xy[1], -0.300+xy[0], 1, 0, 0, -rotation]
-        newPosDown = [0.044+xy[1], -0.300+xy[0], 1.1, 0, 0, -rotation]
-        print("Position to move to", newPosUp)
-        movep(newPosUp, 0.1, 0.15) #It needs to go up and then down do a detection of it
-        movep(newPosDown, 0.1, 0.15)
-        time.sleep(5)
-        gripper.close(0xA5, 0xFF, 0x01) #Do a detection if a gripper has something in its grasp!
-        movep(zeroPosUp, 0.1, 0.1)
-        movep(boxUp, 0.1, 0.1)
-        movep(boxDown, 0.1, 0.1)
-        time.sleep(10)
-        gripper.open(0x00, 0xFF, 0x10)
-        movep(boxUp, 0.1, 0.1)
-        movep(zeroPosUp, 0.1, 0.1)
+# while True:
         
     
-    if cv.waitKey(1) & 0xFF == ord('q'):
-        break
+#     if cv.waitKey(1) & 0xFF == ord('q'):
+#         break
 
 
