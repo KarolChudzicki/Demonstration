@@ -45,7 +45,6 @@ def close(POSITION_REQUEST, SPEED, FORCE):
     CRCL, CRCH, _ =  misc.modbusCrc(command)
     command.append(CRCH)
     command.append(CRCL)
-    print(command)
     ser.write(command)
     data = ser.readline()
     
@@ -69,8 +68,12 @@ def open(POSITION_REQUEST, SPEED, FORCE):
     ACTION_REQUEST = 0x09
     GRIPPER_OPTIONS1 = 0x00
     GRIPPER_OPTIONS2 = 0x00
-    CRC2, CRC1, _ = misc.modbusCrc(command)
-    command = [0x09, 0x10, 0x03, 0xE8, 0x00, 0x03, 0x06, ACTION_REQUEST, GRIPPER_OPTIONS1, GRIPPER_OPTIONS2, POSITION_REQUEST, SPEED, FORCE, CRC1, CRC2]
+    
+    command = [0x09, 0x10, 0x03, 0xE8, 0x00, 0x03, 0x06, ACTION_REQUEST, GRIPPER_OPTIONS1, GRIPPER_OPTIONS2, POSITION_REQUEST, SPEED, FORCE]
+    CRCL, CRCH, _ = misc.modbusCrc(command)
+    
+    command.append(CRCH)
+    command.append(CRCL)
     ser.write(command)
     ser.readline()
     

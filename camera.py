@@ -73,6 +73,7 @@ check_for_outliers = False
 cubeTopArea = 0
 saturationThresholdMask = 170
 cx = None
+approx_stacked = []
 
 width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -151,23 +152,10 @@ def coords(points, approx, frame):
 def sort_points(points, number):
     
     if number == 4:
-        points = np.array([point[0] for point in points])
-        center = np.round(np.mean(points, axis = 0))
-                
-        angles = np.arctan2(points[:,1] - center[1], points[:,0] - center[0])
-        sorted_by_ang = np.argsort(angles)
-        sorted_points_by_ang = points[sorted_by_ang]
-    
-        left = sorted_points_by_ang[0]
-        middle = sorted_points_by_ang[1]
-        right = sorted_points_by_ang[2]
-        bottom = sorted_points_by_ang[3]
+        sorted_points_by_y = sorted(points, key=lambda point: point[0][1])
+        sorted_points_by_x = sorted(points, key=lambda point: point[0][0])
         
-        #print("ANGLES -", sorted_by_ang)
-        
-        result = np.array([[left], [middle], [right], [bottom]])
-        
-        return result
+        return [sorted_points_by_y[0], sorted_points_by_x[0], sorted_points_by_y[-1], sorted_points_by_x[-1]]
     
     else:
         print("Invalid number of points")
@@ -178,6 +166,7 @@ def sort_points(points, number):
 #================================ MAIN LOOP ================================
 while True:
     (ret, frame) = cap.read()
+    fps = cap.get(cv.CAP_PROP_FPS)
     if ret:
         frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -261,8 +250,36 @@ while True:
                     area = cv.contourArea(contour)                    
                     
                     approx = sort_points(approx,4)
+                    
+                    
+                    approx_stacked.append(approx)
+                    
+
+                    if len(approx_stacked) > 10:
+                        approx_stacked.pop(0)
+                    
+                    print("Number of Points Stacked:", len(approx_stacked))
+                    
+                    print("===========================")
+                    print(approx_stacked)
+                    print("===========================")
+                    
+                    
+                    
                     try:
+                        # Calculating coords and angles
+                        if coordinates != 0 :
+                            previous_x = coordinates[0]
+                            
                         coordinates, angles = coords(cube_points, approx, frame)
+                        
+                        # Calculating speed of the cube or other object
+                        
+                        if coordinates != 0:
+                            deltaX = previous_x - coordinates[0] 
+                            object_speed = round(deltaX / (1/fps),2)
+                            #print("Speed:",object_speed)
+                        
                     except Exception as e:
                         print(f"Coordinates error: {e}")
                 elif len(approx) > 4:
@@ -289,6 +306,8 @@ while True:
         
         if coordinates != 0:
             print(coordinates, angles[0])
+            
+            
         cv.imshow('img1',frame)
         cv.imshow('edges',edges)  
         
