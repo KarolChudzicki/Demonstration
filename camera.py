@@ -72,7 +72,7 @@ sum_loop = 0
 check_for_outliers = False
 cubeTopArea = 0
 saturationThresholdMask = 170
-cx = None
+is_cx_calculated = False
 approx_stacked = []
 
 width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
@@ -165,6 +165,8 @@ def sort_points(points, number):
 
 #================================ MAIN LOOP ================================
 def run():
+    global is_cx_calculated, coordinates, angles, cx
+    
     (ret, frame) = cap.read()
     fps = cap.get(cv.CAP_PROP_FPS)
     if ret:
@@ -189,10 +191,14 @@ def run():
         a_forSaturationFunction = (saturationThresholdMax - saturationThresholdMin)/middleOfThePicture
         
         
-        if cx == None:
+        if not is_cx_calculated:
             saturationThresholdMask = 190
         else:
-            saturationThresholdMask = round(a_forSaturationFunction * abs(cx - middleOfThePicture) + saturationThresholdMin)
+            try: 
+                saturationThresholdMask = round(a_forSaturationFunction * abs(cx - middleOfThePicture) + saturationThresholdMin)
+            except Exception as e:
+                print(f"CX error: {e}")
+                saturationThresholdMask = 190
         
         #print("Current sat:", saturationThresholdMask)    
         
@@ -220,6 +226,7 @@ def run():
         
         contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
+        
     
         if contours:
             contour = max(contours, key=cv.contourArea)
@@ -240,6 +247,8 @@ def run():
                 cx = int(M["m10"] / M["m00"])
             else:
                 cx = 0
+                
+            is_cx_calculated = True
 
             
             if cv.contourArea(contour) > 200:
@@ -252,13 +261,19 @@ def run():
                     approx = sort_points(approx,4)
                     approx_stacked.append(approx)
 
-                    if len(approx_stacked) > 10:
+                    if len(approx_stacked) > 5:
                         approx_stacked.pop(0)
                     
-                    print("Number of Points Stacked:", len(approx_stacked))
-                    print("===========================")
-                    print(approx_stacked)
-                    print("===========================")
+                    # print("Number of Points Stacked:", len(approx_stacked))
+                    # print("===========================")
+                    # print(approx_stacked)
+                    # print("===========================")
+                    
+                    mean_points = np.mean(approx_stacked, axis=0).astype(int)
+                    mean_points_formatted = [np.array([point], dtype=np.int32) for point in mean_points]
+                    
+                    approx = mean_points_formatted
+                    #approx = np.mean(approx_stacked, axis=0)
                     
                     try:
                         # Calculating coords and angles
@@ -303,9 +318,9 @@ def run():
         
         if coordinates != 0:
             print(coordinates, angles[0])
-            return coordinates, angles[0]
+            return coordinates, angles[0], frame, edges
         else:
-            return -1
+            return -1, -1, frame, edges
             
             
         
@@ -315,7 +330,5 @@ def run():
         print("Camera error")
         
 
-    
-    # if cv.waitKey(1) & 0xFF == ord('q'):
-    #     break
 
+    

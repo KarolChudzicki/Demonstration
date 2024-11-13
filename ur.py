@@ -1,5 +1,6 @@
 import socket
 import math
+import struct
 
 # REMEMBER TO CHANGE IP ADDRESS IN THE PROPORTIES OF THE DEVICES CONNECTED VIA ETHERNET (!!! TO A DIFFERENT THAN HOST1 !!!)
 HOST1 = '192.38.66.227'        # UR5
@@ -38,5 +39,12 @@ def is_steady():
     print(response)
     
 def currentPos():
-    position = 0
-    return position
+    command  = 'get_actual_tcp_pose()\n'
+    s.send(command.encode('utf-8'))
+    response = s.recv(64)
+    print("Response length:", len(response))
+    char_representation = ''.join(chr(byte) for byte in response)
+    position = response
+    
+    
+    return char_representation
