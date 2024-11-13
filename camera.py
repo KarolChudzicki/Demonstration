@@ -164,12 +164,12 @@ def sort_points(points, number):
 
 
 #================================ MAIN LOOP ================================
-while True:
+def run():
     (ret, frame) = cap.read()
     fps = cap.get(cv.CAP_PROP_FPS)
     if ret:
-        frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-        frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        # frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        # frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         
         new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (width, height), 1, (width, height))
 
@@ -244,27 +244,21 @@ while True:
             
             if cv.contourArea(contour) > 200:
                 mask = cv.inRange(result, (1, 1, 1), (255, 255, 255))
-                mean_hsv = np.round(cv.mean(result, mask=mask)[:3])
+                # mean_hsv = np.round(cv.mean(result, mask=mask)[:3])
                 
                 if len(approx) == 4:
-                    area = cv.contourArea(contour)                    
+                    # area = cv.contourArea(contour)                    
                     
                     approx = sort_points(approx,4)
-                    
-                    
                     approx_stacked.append(approx)
-                    
 
                     if len(approx_stacked) > 10:
                         approx_stacked.pop(0)
                     
                     print("Number of Points Stacked:", len(approx_stacked))
-                    
                     print("===========================")
                     print(approx_stacked)
                     print("===========================")
-                    
-                    
                     
                     try:
                         # Calculating coords and angles
@@ -304,12 +298,17 @@ while True:
         cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
         cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
         
-        if coordinates != 0:
-            print(coordinates, angles[0])
-            
-            
         cv.imshow('img1',frame)
         cv.imshow('edges',edges)  
+        
+        if coordinates != 0:
+            print(coordinates, angles[0])
+            return coordinates, angles[0]
+        else:
+            return -1
+            
+            
+        
         
 
     else:
@@ -317,6 +316,6 @@ while True:
         
 
     
-    if cv.waitKey(1) & 0xFF == ord('q'):
-        break
+    # if cv.waitKey(1) & 0xFF == ord('q'):
+    #     break
 

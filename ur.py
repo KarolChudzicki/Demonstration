@@ -36,3 +36,7 @@ def is_steady():
     s.send(command.encode('utf-8'))
     response = s.recv(1)
     print(response)
+    
+def currentPos():
+    position = 0
+    return position
