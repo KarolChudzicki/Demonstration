@@ -67,11 +67,10 @@ def close(POSITION_REQUEST, SPEED, FORCE):
     ser.write(command)
     ser.readline()
     
-    while True:
-        status = check_status()
-        if status["OBJECT_DETECTION_STATUS"] == 3:
-            print("Kid named finger")
-            break
+    # while True:
+    #     status = check_status()
+    #     if status["OBJECT_DETECTION_STATUS"] == 3:
+    #         break
         
 
 
@@ -91,11 +90,10 @@ def open(POSITION_REQUEST, SPEED, FORCE):
     ser.write(command)
     ser.readline()
     
-    while True:
-        status = check_status()
-        if status["OBJECT_DETECTION_STATUS"] == 3:
-            print("Kid named finger")
-            break
+    # while True:
+    #     status = check_status()
+    #     if status["OBJECT_DETECTION_STATUS"] == 3:
+    #         break
 
 
 def check_status():

@@ -170,9 +170,7 @@ def run():
     (ret, frame) = cap.read()
     fps = cap.get(cv.CAP_PROP_FPS)
     if ret:
-        # frame_hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-        # frame_gray_main = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        
+       
         new_camera_matrix, roi = cv.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (width, height), 1, (width, height))
 
         # ==================== Undistort the image ====================
