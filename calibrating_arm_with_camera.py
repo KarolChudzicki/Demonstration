@@ -5,8 +5,8 @@ from camera import *
 import tkinter as tk
 import gripper
 
-camera_coords = []
-arm_coords = []
+camera_points = []
+arm_points = []
 coords_saved = 0
 stop = False
 
@@ -24,7 +24,7 @@ def save_coords():
             print("Invalid coordinates")
     else:
         print("Coords saved!")
-        camera_coords.append(camera_frame_coords)
+        camera_points.append(camera_frame_coords)
         coords_saved += 1
         
 def end_calib():
@@ -34,17 +34,17 @@ def end_calib():
     stop = True
 
 def button_open_gripper():
-    gripper.open(0x00, 0xFF, 0x01)
+    gripper.open_close(POSITION_REQUEST=85, SPEED=10, FORCE=1)
     
 def button_close_gripper():
-    gripper.close(0xFF, 0xFF, 0x01)
+    gripper.open_close(POSITION_REQUEST=0, SPEED=10, FORCE=1)
     
 def get_coords():
     coords = entry.get()
     coord_list = list(map(float, coords.split(',')))
-    arm_coords.append(coord_list)
+    arm_points.append(coord_list)
     entry.delete(0, tk.END)
-    print(f"Coordinates saved: {arm_coords}")
+    print(f"Coordinates saved: {arm_points}")
 
 # Add buttons
 save_button = tk.Button(root, text="Save coords from camera", width=20, height=2, command = save_coords)
@@ -81,7 +81,15 @@ while not stop:
         break
     
 print("================================================================================")    
-print(camera_coords)
+print(camera_points)
 print("================================================================================")
-print(arm_coords)
+print(arm_points)
 print("================================================================================")
+
+success, rotation_vector, translation_vector = cv.solvePnP(arm_points, camera_points, camera_matrix, distortion_coeffs)
+
+camera_coords = np.array([0, 0, 0])  # Input coordinates in the camera frame
+
+# Convert to robot frame
+robot_coords = np.dot(rotation_vector, camera_coords) + translation_vector
+print(robot_coords)  # This will give you the robot coordinates corresponding to the camera coordinates

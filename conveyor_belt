@@ -47,10 +47,6 @@ def set_speed(speed_value):
 
 if client.connect():
     print("Connected to the inverter")
-
-    
-    
-    
     start_conveyor()
     set_speed(150)
     set_direction(0)
