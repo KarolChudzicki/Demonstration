@@ -1,50 +1,79 @@
 import socket
 import math
 import struct
+import logging
 
-# REMEMBER TO CHANGE IP ADDRESS IN THE PROPORTIES OF THE DEVICES CONNECTED VIA ETHERNET (!!! TO A DIFFERENT THAN HOST1 !!!)
-HOST1 = '192.38.66.227'        # UR5
-PORT1 = 30003            # The same port as used by the server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST1, PORT1))
+logging.basicConfig(level=logging.INFO)
 
-#==================== FUNCTIONS ====================
-#Joint position in deg
-def movej(position, acc, vel):
-    position = [x * math.pi/180.0 for x in position]
-    command = 'movej(' + str(position) + ',' + str(acc) + ',' + str(vel) + ')\n'
-    s.send(command.encode('utf-8'))
+class URRobot:
+    def __init__(self, host: str = '192.38.66.227', port: int = 30003) -> None:
+        # REMEMBER TO CHANGE IP ADDRESS IN THE PROPORTIES OF THE DEVICES CONNECTED VIA ETHERNET (!!! TO A DIFFERENT THAN HOST1 !!!)
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.host = host
+        self.port = port
+        try:
+            self.s.connect((host,port))
+            logging.info(f"Successfully connected to {self.host}:{self.port}")
+        except socket.error as e:
+            logging.error((f"Failed to connect to {self.host}:{self.port} - {e}"))
+        
+    def movej(self, position, acceleration, velocity) -> None:
+        # Convert degrees to radians
+        position = [pose * math.pi/180.0 for pose in position]
+        COMMAND = 'movej(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ')\n'
+        self.s.send(COMMAND.encode('utf-8'))
 
-def movep(position, acc, vel):
-    command = 'movep(p' + str(position) + ',' + str(acc) + ',' + str(vel) + ')\n'
-    s.send(command.encode('utf-8'))
+    def movep(self, position, acceleration, velocity)-> None:
+        COMMAND = 'movep(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ')\n'
+        self.s.send(COMMAND.encode('utf-8'))
+        
+    def movel(self, position, acceleration, velocity, time)-> None:
+        command = 'movep(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + str(time) +')\n'
+        self.s.send(command.encode('utf-8'))
+        
+    def speed(self, jointSpeed)-> None:
+        COMMAND = 'speed(' + str(jointSpeed) + ')\n'
+        self.s.send(COMMAND.encode('utf-8'))
 
-def movel(position, acc, vel, t):
-    command = 'movel(p' + str(position) + ',' + str(acc) + ',' + str(vel) + ',' + str(t) + ')\n'
-    s.send(command.encode('utf-8'))
-
-#Joint speed in radians
-def speed(jointSpeed):
-    command = 'speed(' + str(jointSpeed) + ')\n'
-    s.send(command.encode('utf-8'))
-
-def rSleep(time):
-    command = 'sleep(' + str(time) + '.)\n'
-    s.send(command.encode('utf-8'))
+    def rSleep(self, time)-> None:
+        COMMAND = 'sleep(' + str(time) + '.)\n'
+        self.s.send(COMMAND.encode('utf-8'))
+        
+    def is_steady(self):
+        COMMAND = 'is_steady()\n'
+        self.s.send(COMMAND.encode('utf-8'))
+        response = self.s.recv(1)
+        print(response)
     
-def is_steady():
-    command = 'is_steady()\n'
-    s.send(command.encode('utf-8'))
-    response = s.recv(1)
-    print(response)
+    def current_Position(self) -> list[float]:
+        """
+        Retrieves the current TCP position of the robot.
+
+        Returns:
+            list[float]: A list containing the robot's position in decimal format,
+                         rounded to a specified number of decimal points.
+        """
+        STARTING_BYTE = 72
+        ENDING_BYTE = 78
+        POSITION_DECIMAL_POINTS = 5
+        OFFSET = 12
+        COMMAND  = 'get_actual_tcp_pose()\n'
+        
+        self.s.send(COMMAND.encode('utf-8'))
+        response = self.s.recv(1024)
+        robot_position = []
+        
+        for x in range (STARTING_BYTE, ENDING_BYTE):
+            val = OFFSET + 8 * x
+            position = struct.unpack('>d', response[val:val+8])
+            position = round(float(position[0]),POSITION_DECIMAL_POINTS)
+            robot_position.append(position)
+        
     
-def currentPos():
-    command  = 'get_actual_tcp_pose()\n'
-    s.send(command.encode('utf-8'))
-    response = s.recv(64)
-    print("Response length:", len(response))
-    char_representation = ''.join(chr(byte) for byte in response)
-    position = response
     
-    
-    return char_representation
+        return robot_position
+
+
+
+
+
