@@ -37,24 +37,25 @@ class Gripper:
             logging.error("Failed to extablish gripper connection")
     
     def activate(self) -> None:
-        """Function used to activate the gripper if it hasn't already been activated"""
-        status = self.check_status()
-        # Only do activation if the gripper is not activated yet
-        if status["ACTIVATION_STATUS"] == 0:
-            self.ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x00\x00\x00\x00\x00\x00\x73\x30')
-            data = self.ser.readline()
-            time.sleep(0.01)
+        """Function used to activate the gripper"""
+        
+        self.ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x00\x00\x00\x00\x00\x00\x73\x30')
+        data = self.ser.readline()
+        time.sleep(0.01)
             
-            self.ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x01\x00\x00\x00\x00\x00\x72\xE1')
-            data = self.ser.readline()
-            time.sleep(0.01)
+        self.ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x01\x00\x00\x00\x00\x00\x72\xE1')
+        data = self.ser.readline()
+        time.sleep(0.01)
 
-            while True:
-                self.ser.write(b'\x09\x03\x07\xD0\x00\x01\x85\xCF')
-                data = self.ser.readline()
-                time.sleep(0.5)
-                if data == b'\x09\x03\x02\x31\x00\x4C\x15':
-                    break
+        while True:
+            self.ser.write(b'\x09\x03\x07\xD0\x00\x01\x85\xCF')
+            data = self.ser.readline()
+            time.sleep(0.5)
+            if data == b'\x09\x03\x02\x31\x00\x4C\x15':
+                break
+            
+        logging.info("Gripper activated")
+        
         
     def check_status(self) -> dict:
         """

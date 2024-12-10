@@ -15,8 +15,12 @@ root = tk.Tk()
 root.title("Camera-Robot Calibration")
 root.geometry("400x400")  # Adjust size as needed
 
+gripper = gripper.Gripper()
+
 gripper.connect()
-gripper.activate()
+#gripper.activate()
+
+camera.initSlider()
 
 def save_coords():
     global coords_saved
@@ -45,12 +49,18 @@ def get_coords():
     arm_points.append(coord_list)
     entry.delete(0, tk.END)
     print(f"Coordinates saved: {arm_points}")
+    
+def activate_gripper():
+    gripper.activate()
 
 # Add buttons
 save_button = tk.Button(root, text="Save coords from camera", width=20, height=2, command = save_coords)
 save_button.pack(pady=10)
 
 stop_button = tk.Button(root, text="Stop Calibration", width=20, height=2, command = end_calib)
+stop_button.pack(pady=10)
+
+stop_button = tk.Button(root, text="Activate gripper", width=20, height=2, command = activate_gripper)
 stop_button.pack(pady=10)
 
 open_gripper = tk.Button(root, text="Open gripper", width=20, height=2, command = button_open_gripper)
@@ -70,7 +80,8 @@ entry.pack(pady=10)
 
 while not stop:
     global camera_frame_coords, camera_frame_angles, frame, edges
-    camera_frame_coords, camera_frame_angles, frame, edges = camera.run()
+    if camera.run() != None:
+        camera_frame_coords, camera_frame_angles, frame, edges = camera.run()
     
     
     root.update_idletasks()

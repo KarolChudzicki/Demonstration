@@ -21,14 +21,17 @@ class URRobot:
         # Convert degrees to radians
         position = [pose * math.pi/180.0 for pose in position]
         COMMAND = 'movej(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ')\n'
+        print(COMMAND.encode('utf-8'))
         self.s.send(COMMAND.encode('utf-8'))
 
     def movep(self, position, acceleration, velocity)-> None:
-        COMMAND = 'movep(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ')\n'
+
+        COMMAND = 'movep(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ')\n'
+        print(COMMAND.encode('utf-8'))
         self.s.send(COMMAND.encode('utf-8'))
         
     def movel(self, position, acceleration, velocity, time)-> None:
-        command = 'movep(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + str(time) +')\n'
+        command = 'movep(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) +')\n'
         self.s.send(command.encode('utf-8'))
         
     def speed(self, jointSpeed)-> None:
