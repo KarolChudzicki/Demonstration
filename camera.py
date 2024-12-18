@@ -76,8 +76,8 @@ check_for_outliers = False
 cubeTopArea = 0
 saturationThresholdMask = 170
 is_cx_calculated = False
-isInside = False
-isAtMiddlePoint = False
+isAtFirstLine = False
+isAtSecondLine = False
 box_stacked = []
 
 width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
@@ -197,6 +197,8 @@ def update():
 #================================ MAIN LOOP ================================
 def run():
     global is_cx_calculated, coordinates, angles, cx
+    isAtFirstLine = False
+    isAtSecondLine = False
     
     (ret, frame) = cap.read()
     fps = cap.get(cv.CAP_PROP_FPS)
@@ -210,6 +212,7 @@ def run():
         # ==================== Crop the image to the valid region of interest ====================
         x, y, w, h = roi
         undistorted_img = undistorted_img[y:y+h, x:x+w]
+        frame = undistorted_img
         
         
         h_low = cv.getTrackbarPos("H low", "Camera params")
@@ -277,15 +280,15 @@ def run():
                 cx = 0
                 cy = 0
             
-            if cx > 100 and cx < width - 100:
-                isInside = True
+            if cx < roi[2] - 100 and cx != 0:
+                isAtFirstLine = True
             else:
-                isInside = False
+                isAtFirstLine = False
                 
-            if cx < 100 and cx < width - 100:
-                isAtMiddlePoint = True
+            if cx < 100 and cx != 0:
+                isAtSecondLine = True
             else:
-                isAtMiddlePoint = False
+                isAtSecondLine = False
             
             rect = cv.minAreaRect(contour)  # Get the bounding rectangle
             center_rect, size_rect, angle_rect = rect
@@ -344,7 +347,7 @@ def run():
                 
                 # Set 0,0 point on the left side of the screen and flip x axis
                 if not None:
-                    coordinates[0] += width//2
+                    coordinates[0] += roi[2]//2
                     coordinates[0] *= -1
                     
                     # Convert coordinates to meters
@@ -367,17 +370,18 @@ def run():
             cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
             
             # Draw detection rectangle
-            cv.rectangle(frame, (100, 100), (width-100, height-100), (255,0,255), 2)
-            cv.line(frame, (width//2, 100), (width//2, height-100), (255,0,255),2)
+            cv.rectangle(frame, (100, 50), (roi[2]-100, roi[3]-50), (255,0,255), 2)
+            cv.line(frame, (roi[2]//2, 50), (roi[2]//2, roi[3]-50), (255,0,255),2)
             
         
             
             
             cv.imshow('img1',frame)
             
-            return coordinates, angles, isInside, isAtMiddlePoint
+            return coordinates, angles, isAtFirstLine, isAtSecondLine
         else:
             cv.imshow('img1',frame)
+            
             return None, None, None, None
         
         

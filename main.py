@@ -22,7 +22,7 @@ gripper.connect()
 # Create main window
 root = tk.Tk()
 root.title("Camera-Robot Calibration")
-root.geometry("400x400")
+root.geometry("400x600")
 
 stop = False
 is_following_cube = False
@@ -99,21 +99,25 @@ reset_values = tk.Button(root, text="Reset values", width=20, height=2, command 
 reset_values.pack(pady=10)    
 
 # ==================== POSITIONS ====================
-homePosition = [-0.20581, 0.7, -0.07968, -1.18436, -1.20519, -1.21406]
+homePosition = [-0.470, 0.708, -0.084, -1.18, -1.21, -1.1958]
+homePositionVertical = [-0.25, 0.77, -0.13, 0.023, -3.1394, -0.0165]
 dropPoint = [0.393, 0.741, -0.025, -1.67, -0.85, -1.63]
-pos2 = [0.90169, 0.10405, 0.49756, -1.98312, -0.43107, -1.84068]
+dropPointVertical = [0.315, 0.625, -0.13, 0.023, -3.1394, -0.0165]
 
-offset_camera_robot = [0.0721825, 0.8394725]
+
+offset_camera_robot = [-0.3011275, 0.8875]
 MAX_Y = 0.9
 MIN_Y = 0.8
-MAX_X = -0.12
-MIN_X = -0.31
+MAX_X = 0.1
+MIN_X = -0.250
 
 
-def go_to_cube(newPositionX, cubePositionAtMiddleLine):
+def go_to_cube(newPositionX, cubePositionAtMiddleLine, tcubeHome, angleOfCube):
     global camera_frame_coords, base_orientation
     new_x = round(cubePositionAtMiddleLine[0] + offset_camera_robot[0] + newPositionX,4)
     new_y = round(cubePositionAtMiddleLine[1] + offset_camera_robot[1],4)
+    new_angle = float(base_orientation[1] - round(np.deg2rad(angleOfCube-90),2))
+    print("NEW angle: ",new_angle)
             
     if new_x > MAX_X:
         new_x = MAX_X
@@ -125,82 +129,109 @@ def go_to_cube(newPositionX, cubePositionAtMiddleLine):
         new_y = MIN_Y
             
     cube_coords = [new_x, 
-                   new_y + 0.02, 
-                   base_orientation[0],
-                   base_orientation[1],
+                   new_y - 0.085, 
+                   -0.175,
+                   new_angle,
                    base_orientation[2],
                    base_orientation[3]]
     print(cube_coords)
-    URRobot.movel(cube_coords, 10, 3, 1)
-    time.sleep(1)
-    gripper.open_close(POSITION_REQUEST=0, SPEED=50, FORCE=1)
+    time.sleep(tcubeHome)
+    timeToCatchCube = 3 - tcubeHome
+    URRobot.movel(cube_coords, 10, 10, timeToCatchCube)
+    time.sleep(timeToCatchCube - 0.1)
+    gripper.open_close(POSITION_REQUEST=0, SPEED=100, FORCE=1)
     time.sleep(1)
     # Move up 10cm
     cube_coords[2] += 0.1
     URRobot.movel(cube_coords, 0.1, 0.1, 2)
     time.sleep(2)
-    URRobot.movel(dropPoint, 0.1, 0.1, 3)
+    URRobot.movel(dropPointVertical, 0.1, 0.1, 3)
     time.sleep(3)
-    gripper.open_close(POSITION_REQUEST=85, SPEED=50, FORCE=1)
+    gripper.open_close(POSITION_REQUEST=85, SPEED=100, FORCE=1)
     time.sleep(1)
-    URRobot.movel(homePosition, 0.1, 0.1, 4)
+    URRobot.movel(homePositionVertical, 0.1, 0.1, 4)
     time.sleep(4)
 
 
 # ==================== MAIN LOOP ====================
 # gripper = gripper.Gripper(port='COM8')
 gripper.open_close(POSITION_REQUEST=85, SPEED=50, FORCE=1)
-get_new_tool_orientation_and_z()
+
 
 # Go to home position
-print(homePosition)
-URRobot.movel(homePosition, 2, 3, 2)
+URRobot.movel(homePositionVertical, 2, 3, 3)
+
+#Angles
+angle_sum = 0
+angle_length = 0
 
 # Timers
 firstTimerToggle = False
 secondTimerToggle = False
-isInside = False
-isAtMiddlePoint = False
+isAtFirstLine = False
+isAtSecondLine = False
 grabbingCube = False
+time.sleep(5)
+get_new_tool_orientation_and_z()
 
 while not stop:
     global camera_frame_coords, camera_frame_angles
     root.update_idletasks()
     root.update()
-    if camera.run() != None:
-        camera_frame_coords, camera_frame_angles, isInside, isAtMiddlePoint = camera.run()
-        #print(camera_frame_coords, isInside, isAtMiddlePoint)
+    
+    camera_frame_coords, camera_frame_angles, isAtFirstLine, isAtSecondLine = camera.run()
+
+    
+        
     
     if camera_frame_coords == None:
         camera_frame_coords = prev_camera_frame_coords
     else:
         prev_camera_frame_coords = camera_frame_coords
-    
-    
-    #Toggle first timer
-    
-    if isInside == True and firstTimerToggle == False:
-        time1 = time.time()
-        xpos1 = camera_frame_coords[0]
-        firstTimerToggle = True
-        print("Time1", time1)
         
-    if isAtMiddlePoint == True and secondTimerToggle == False:
-        dTime = abs(time.time() - time1)
-        xpos2 = camera_frame_coords[1]
-        dxpos = abs(xpos1 - xpos2)
-        cubeSpeed = round(dxpos/dTime,4)
-        newPositionX = round(cubeSpeed * 2, 4) # Velocity times 2 seconds = Position of the cube in 2 seconds
-        print("Cube speed: ",cubeSpeed, "X pos inc: ", newPositionX)
-        secondTimerToggle = True
-        cubePositionAtMiddleLine = camera_frame_coords    
+        if isAtFirstLine and not isAtSecondLine and camera_frame_angles != None:
+            angle_sum += camera_frame_angles
+            angle_length += 1
+        
+        
+        #Toggle first timer
+    
+        if isAtFirstLine == True and firstTimerToggle == False:
+            time1 = time.time()
+            xpos1 = camera_frame_coords[0]
+            firstTimerToggle = True
+            print("Time1", time1)
+            
+            
+        if isAtSecondLine == True and secondTimerToggle == False: 
+            dTime = abs(time.time() - time1)
+            xpos2 = camera_frame_coords[1]
+            dxpos = abs(xpos1 - xpos2)
+            print("Dxpos: ", dxpos)
+            cubeSpeed = round(dxpos/dTime,4)
+            newPositionX = round(cubeSpeed * 3, 4) # Velocity times 2 seconds = Position of the cube in 2 seconds
+            print("Cube speed: ",cubeSpeed, "X pos inc: ", newPositionX)
+            secondTimerToggle = True
+            cubePositionAtMiddleLine = camera_frame_coords   
+            
+            angleOfCube = angle_sum/angle_length
+            angle_sum = 0
+            angle_length = 0
+            
+            # Time for the cube to reach home pos
+            tcubeHome = (homePositionVertical[0] - (xpos2 + offset_camera_robot[0]))/cubeSpeed
+            
+    
+    
+     
         
     
     
     
     
     if firstTimerToggle and secondTimerToggle:
-        go_to_cube(newPositionX, cubePositionAtMiddleLine)
+        print(angleOfCube)
+        go_to_cube(newPositionX, cubePositionAtMiddleLine, tcubeHome, angleOfCube)
         firstTimerToggle = False
         secondTimerToggle = False
 

@@ -47,7 +47,7 @@ def save_coords():
     else:
         camera_points.append(camera_frame_coords)
         # Get only X and Y position of the arm
-        arm_xy = URRobot.current_Position()[:2].tolist()
+        arm_xy = URRobot.current_Position()[:2]
         arm_points.append(arm_xy)
         coords_saved += 1
         print("Coords saved!", arm_points)
@@ -80,31 +80,31 @@ firstTimerToggle = False
 secondTimerToggle = False
 
 while not stop:
-    global camera_frame_coords, camera_frame_angles, frame
+    global camera_frame_coords, camera_frame_angles
     if camera.run() != None:
-        camera_frame_coords, camera_frame_angles, frame, isInside, isAtMiddlePoint = camera.run()
+        camera_frame_coords, camera_frame_angles, isAtFirstLine, isAtSecondLine = camera.run()
     else:
-        isInside = False
-        isAtMiddlePoint = False
+        isAtFirstLine = False
+        isAtSecondLine = False
         
     
-    # Toggle first timer
-    if isInside and not firstTimerToggle:
-        time1 = time.time()
-        xpos1 = camera_frame_coords[0]
-        firstTimerToggle = True
+    # # Toggle first timer
+    # if isInside and not firstTimerToggle:
+    #     time1 = time.time()
+    #     xpos1 = camera_frame_coords[0]
+    #     firstTimerToggle = True
     
-    if isAtMiddlePoint and not secondTimerToggle:
-        dTime = abs(time.time() - time1)
-        xpos2 = camera_frame_coords[1]
-        dxpos = abs(xpos1 - xpos2)
-        cubeSpeed = dxpos/dTime
-        print(cubeSpeed)
-        secondTimerToggle = True
-        newPosition  = cubeSpeed * 2 # Velocity times 2 seconds = Position of the cube in 2 seconds
+    # if isAtMiddlePoint and not secondTimerToggle:
+    #     dTime = abs(time.time() - time1)
+    #     xpos2 = camera_frame_coords[1]
+    #     dxpos = abs(xpos1 - xpos2)
+    #     cubeSpeed = dxpos/dTime
+    #     print(cubeSpeed)
+    #     secondTimerToggle = True
+    #     newPosition  = cubeSpeed * 2 # Velocity times 2 seconds = Position of the cube in 2 seconds
         
     
-    print(camera_frame_coords, isInside, isAtMiddlePoint)
+    print(camera_frame_coords, camera_frame_angles, isAtFirstLine, isAtSecondLine)
     root.update_idletasks()
     root.update()
     
