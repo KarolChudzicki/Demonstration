@@ -384,17 +384,7 @@ def run():
             
             return None, None, None, None
         
-        
-                        
-        
-        
-        
-        
-            
-            
-        
-        
-
+     
     else:
         print("Camera error")
         
