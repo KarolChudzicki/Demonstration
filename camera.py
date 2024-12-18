@@ -380,17 +380,7 @@ def run():
             cv.imshow('img1',frame)
             return None, None, None, None
         
-        
-                        
-        
-        
-        
-        
-            
-            
-        
-        
-
+     
     else:
         print("Camera error")
         
