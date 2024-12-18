@@ -2,6 +2,8 @@ import socket
 import math
 import struct
 import logging
+import time
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,14 +26,13 @@ class URRobot:
         print(COMMAND.encode('utf-8'))
         self.s.send(COMMAND.encode('utf-8'))
 
-    def movep(self, position, acceleration, velocity)-> None:
-
-        COMMAND = 'movep(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ')\n'
+    def movep(self, position, acceleration, velocity) -> None:
+        COMMAND = 'movep(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ',' + str(0.001) + ')\n'
         print(COMMAND.encode('utf-8'))
         self.s.send(COMMAND.encode('utf-8'))
         
     def movel(self, position, acceleration, velocity, time)-> None:
-        command = 'movep(' + str(position) + ',' + str(acceleration) + ',' + str(velocity) +')\n'
+        command = 'movel(' + 'p' + str(position) + ',' + str(acceleration) + ',' + str(velocity) + ',' + str(time) +')\n'
         self.s.send(command.encode('utf-8'))
         
     def speed(self, jointSpeed)-> None:
@@ -48,6 +49,14 @@ class URRobot:
         response = self.s.recv(1)
         print(response)
     
+    def reset_socket(self):
+        try:
+            self.s.close()  # Close the current socket
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create a new socket
+            self.s.connect((self.host, self.port))  # Reconnect to the same address and port
+        except socket.error as e:
+            print(f"Error resetting socket: {e}")
+    
     def current_Position(self) -> list[float]:
         """
         Retrieves the current TCP position of the robot.
@@ -62,9 +71,13 @@ class URRobot:
         OFFSET = 12
         COMMAND  = 'get_actual_tcp_pose()\n'
         
+        
+        self.reset_socket()
         self.s.send(COMMAND.encode('utf-8'))
-        response = self.s.recv(1024)
+        # VERY IMPORTANT TO SET THE VALUE TO 812!!!
+        response = self.s.recv(812)
         robot_position = []
+        
         
         for x in range (STARTING_BYTE, ENDING_BYTE):
             val = OFFSET + 8 * x

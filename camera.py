@@ -76,7 +76,9 @@ check_for_outliers = False
 cubeTopArea = 0
 saturationThresholdMask = 170
 is_cx_calculated = False
-approx_stacked = []
+isInside = False
+isAtMiddlePoint = False
+box_stacked = []
 
 width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -96,11 +98,12 @@ cube_points = np.array([
 ], dtype=np.float32)
 
 
-def coords(points, approx, frame):
-    image_points = np.array([point[0] for point in approx], dtype=np.float32)
+def coords(points, points_sorted, frame):
+    points_sorted = np.array(points_sorted, dtype=np.float32)
+
     # Maybe use cv.SOLVEPNP_P3P, but it only works for 4 points cv.SOLVEPNP_EPNP
-    if len(approx) == 4:
-        success, rotation_vector, translation_vector = cv.solvePnP(points, image_points, camera_matrix, distortion_coeffs, flags=cv.SOLVEPNP_P3P)
+    if len(points_sorted) == 4:
+        success, rotation_vector, translation_vector = cv.solvePnP(points, points_sorted, camera_matrix, distortion_coeffs, flags=cv.SOLVEPNP_P3P)
     else:
         print("Incorrect number of corners")
     
@@ -121,21 +124,17 @@ def coords(points, approx, frame):
             # This method is less susceptible to some of the numerical instability issues that can arise from Euler angle calculations. 
             R = np.dot(U, Vt)
             yaw = math.atan2(R[1, 0], R[0, 0])
-            pitch = math.atan2(-R[2, 0], math.sqrt(R[2, 1]**2 + R[2, 2]**2))
-            roll = math.atan2(R[2, 1], R[2, 2])
 
-            yaw = round(np.degrees(yaw))
-            pitch = round(np.degrees(pitch))
-            roll = round(np.degrees(roll))           
+            yaw = round(np.degrees(yaw))     
             
 
-            # Project the 3D points to 2D image points using the pose (rvec, tvec)
-            img_points, _ = cv.projectPoints(points, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
+            # # Project the 3D points to 2D image points using the pose (rvec, tvec)
+            # img_points, _ = cv.projectPoints(points, rotation_vector, translation_vector, camera_matrix, distortion_coeffs)
 
-            # Visualize the projected points on the image (assuming 'frame' is your video frame)
-            for point in img_points:
-                x, y = point.ravel()
-                cv.circle(frame, (int(x), int(y)), 5, (255, 255, 0), -1)  # Draw green dots
+            # # Visualize the projected points on the image (assuming 'frame' is your video frame)
+            # for point in img_points:
+            #     x, y = point.ravel()
+            #     cv.circle(frame, (int(x), int(y)), 5, (255, 255, 0), -1)  # Draw green dots
             
             
         except Exception as e:
@@ -143,23 +142,36 @@ def coords(points, approx, frame):
             return None
 
         coordinates = np.round(coordinates_camera_space.ravel()[:3]).astype(int).tolist()
-        angles = [yaw, pitch, roll]
+        
        
-       #Remove roll
+        #Remove z which has index = 2
         coordinates.pop(2)
-        return coordinates, angles
+                
+        return coordinates, yaw
     else:
         print("Solve PNP error")
-        return 0,0
+        return None, None
 
 def sort_points(points, number):
     
     if number == 4:
-        sorted_points_by_y = sorted(points, key=lambda point: point[0][1])
-        sorted_points_by_x = sorted(points, key=lambda point: point[0][0])
+        # Step 1: Calculate the center of the points (average of all points)
+        center = np.mean(points, axis=0)
         
-        return [sorted_points_by_y[0], sorted_points_by_x[0], sorted_points_by_y[-1], sorted_points_by_x[-1]]
-    
+        # Step 2: Calculate the angle of each point relative to the center
+        def calculate_angle(point, center):
+            dx = point[0] - center[0]
+            dy = point[1] - center[1]
+            return np.arctan2(dy, dx)
+
+        # Step 3: Sort points based on the angle
+        angles = [calculate_angle(point, center) for point in points]
+        sorted_indices = np.argsort(angles)
+        sorted_points = points[sorted_indices]
+        
+        # Step 4: Return the sorted points
+        return sorted_points.astype(int)
+
     else:
         print("Invalid number of points")
         return None
@@ -177,12 +189,6 @@ def initSlider():
     cv.createTrackbar("Dilation", "Camera params", 6, 10, lambda x: None)
     cv.createTrackbar("Erosion", "Camera params", 5, 10, lambda x: None)
     
-    cv.createTrackbar("Block size", "Camera params", 8, 20, lambda x: None)
-    cv.createTrackbar("K size", "Camera params", 8, 15, lambda x: None)
-    cv.createTrackbar("K", "Camera params", 105, 200, lambda x: None)
-    
-    cv.createTrackbar("Min dist", "Camera params", 10, 500, lambda x: None)
-    cv.createTrackbar("Quality", "Camera params", 10, 500, lambda x: None)
         
 def update():
     pass
@@ -206,23 +212,6 @@ def run():
         undistorted_img = undistorted_img[y:y+h, x:x+w]
         
         
-        # ==================== Masking and filtering ====================
-        #frame, result, edges = sliders_hsv.sliders(undistorted_img, mean_hsv, cubeTopArea)
-        # saturationThresholdMax = 190
-        # saturationThresholdMin = 75
-        # middleOfThePicture = x + w // 2
-        # a_forSaturationFunction = (saturationThresholdMax - saturationThresholdMin)/middleOfThePicture
-        
-        
-        # if not is_cx_calculated:
-        #     saturationThresholdMask = 190
-        # else:
-        #     try: 
-        #         saturationThresholdMask = round(a_forSaturationFunction * abs(cx - middleOfThePicture) + saturationThresholdMin)
-        #     except Exception as e:
-        #         print(f"CX error: {e}")
-        #         saturationThresholdMask = 190
-        
         h_low = cv.getTrackbarPos("H low", "Camera params")
         s_low = cv.getTrackbarPos("S low", "Camera params") 
         v_low = cv.getTrackbarPos("V low", "Camera params") 
@@ -233,12 +222,6 @@ def run():
         dil = cv.getTrackbarPos("Dilation", "Camera params") 
         ero = cv.getTrackbarPos("Erosion", "Camera params") 
         
-        b_size = cv.getTrackbarPos("Block size", "Camera params") 
-        k_size = cv.getTrackbarPos("K size", "Camera params") *2 +1
-        k_harris = cv.getTrackbarPos("K", "Camera params")/1000
-        
-        minDistance = cv.getTrackbarPos("Min dist", "Camera params")
-        quality = cv.getTrackbarPos("Quality", "Camera params") / 1000
         
         lower_bound = (h_low, s_low, v_low)
         upper_bound = (h_up, s_up, v_up)
@@ -260,173 +243,149 @@ def run():
         
         gray_result = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
         
-        result_harris = result.copy()
-        result_harris = cv.cvtColor(result_harris, cv.COLOR_BGR2GRAY)
-        cv.imshow('result',result_harris) 
+    
+               
+        frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 13, 2)
+        #frame_thresh = cv.threshold(gray_result,1,255,cv.THRESH_OTSU)[1]
         
-        # harris_test = np.float32(harris_test)
-        dst = cv.cornerHarris(result_harris, b_size, k_size, k_harris)
+        kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))
         
-        dst = cv.dilate(dst, None)
-        result_harris_bgr = cv.cvtColor(result_harris, cv.COLOR_GRAY2BGR)
-        result_harris_bgr[dst > 0.01 * dst.max()] = [0, 0, 255]
+        # Apply Erosion
+        eroded = cv.erode(frame_thresh, kernel, iterations=ero)
         
-        if dst.any() > 0:
-            best_corners = cv.goodFeaturesToTrack(dst, maxCorners=4, qualityLevel=quality, minDistance=minDistance)
-        else:
-            best_corners = []
-        print(best_corners)
-                
-        cv.imshow('harris',result_harris_bgr) 
+        # Apply Dilation
+        dilated = cv.dilate(eroded, kernel, iterations=dil)
+               
+        edges = cv.Canny(dilated, 150, 200)
+               
+        contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         
         
-        if len(best_corners) > 0:
-            sorted_corners = sort_points(best_corners,4)
-            approx_stacked.append(sorted_corners)
-
-            if len(approx_stacked) > 3:
-                approx_stacked.pop(0)
-                        
-
-                        
-            mean_points = np.mean(approx_stacked, axis=0).astype(int)
-            mean_points_formatted = [np.array([point], dtype=np.int32) for point in mean_points]
-                        
+        
+    
+        if contours:
+            contour = max(contours, key=cv.contourArea)
             
-                        
-            try:
-                coordinates, angles = coords(cube_points, sorted_corners, frame)
+             # Calculating contour center x coordinate
+            M = cv.moments(contour)
+    
+            # Calculate centroid x
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M['m01'] / M['m00'])
+            else:
+                cx = 0
+                cy = 0
+            
+            if cx > 100 and cx < width - 100:
+                isInside = True
+            else:
+                isInside = False
                 
+            if cx < 100 and cx < width - 100:
+                isAtMiddlePoint = True
+            else:
+                isAtMiddlePoint = False
+            
+            rect = cv.minAreaRect(contour)  # Get the bounding rectangle
+            center_rect, size_rect, angle_rect = rect
+            
+            center_rect = [int(center_rect[0]), int(center_rect[1])]
+            #cv.circle(frame, center_rect, 5, (255, 255, 0), 2)
+            
+            half_width = size_rect[0] / 2
+            half_height = size_rect[1] / 2
+
+            # Define the four corners of the rectangle before rotation
+            corners = np.array([
+                [-half_width, -half_height],  # Top-left
+                [ half_width, -half_height],  # Top-right
+                [ half_width,  half_height],  # Bottom-right
+                [-half_width,  half_height]   # Bottom-left
+            ])
+            
+            # Rotation matrix
+            angle_rad = np.radians(angle_rect)
+            rotation_matrix = np.array([
+                [np.cos(angle_rad), -np.sin(angle_rad)],
+                [np.sin(angle_rad),  np.cos(angle_rad)]
+            ])
+
+            # Rotate the corners
+            rotated_corners = np.dot(corners, rotation_matrix.T)
+
+            # Translate the rotated corners back to the rectangle's center
+            rotated_corners += np.array(center_rect)
+
+            # Convert to integer coordinates
+            rotated_corners = rotated_corners.astype(int)
+            rotated_corners = np.array(rotated_corners)
+                                               
+            for point in rotated_corners:
+                xr, yr = point.ravel()
+                
+                cv.circle(frame, (xr, yr), 5, (255, 255, 0), 2)  # Green lines
+
+            rotated_corners_sorted = sort_points(rotated_corners,4)
+            
+            box_stacked.append(rotated_corners_sorted)
+
+            if len(box_stacked) > 2:
+                box_stacked.pop(0)
+                mean_points = np.mean(box_stacked, axis=0).astype(int)
+                mean_points_formatted = [np.array([point], dtype=np.int32) for point in mean_points]
+            
+            
+                rotated_corners_sorted = mean_points_formatted
+            
+            try:
+                # Calculating coords and angles
+                coordinates, angles = coords(cube_points, rotated_corners_sorted, frame)
+                
+                # Set 0,0 point on the left side of the screen and flip x axis
+                if not None:
+                    coordinates[0] += width//2
+                    coordinates[0] *= -1
+                    
+                    # Convert coordinates to meters
+                    coordinates = [coordinates[0]/1000, coordinates[1]/1000]
+                                         
             except Exception as e:
                 print(f"Coordinates error: {e}")
-            
+
             corner_cnt = 1
-            for corner in sorted_corners:
+            for corner in rotated_corners_sorted:
                 x, y = corner.ravel()
-                x = int(x)
-                y = int(y)
-                cv.circle(frame, (x, y), 5, (0, 0, 255), 2)
+                cv.circle(frame, (x, y), 5, (0, 0, 255), -1)
                 cv.putText(frame, str(corner_cnt), (x + 10,y + 10), cv.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv.LINE_AA)
                 corner_cnt += 1
-        
-        # frame_thresh = cv.adaptiveThreshold(gray_result, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 13, 2)
-        # #frame_thresh = cv.threshold(gray_result,1,255,cv.THRESH_OTSU)[1]
-        
-        # kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))
-        
-        # # Apply Erosion
-        # eroded = cv.erode(frame_thresh, kernel, iterations=ero)
-        
-        # # Apply Dilation
-        # dilated = cv.dilate(eroded, kernel, iterations=dil)
-
-        
-                
-        # edges = cv.Canny(dilated, 150, 200)
-        
-        
-        
-        # result = cv.cvtColor(result, cv.COLOR_BGR2HSV)
-        
-        
-        # contours, _ = cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        
-        
-    
-        # if contours:
-        #     contour = max(contours, key=cv.contourArea)
-        #     epsilon = 0.001 * cv.arcLength(contour, True)
-        #     approx = cv.approxPolyDP(contour, epsilon, True)
             
-        #     hull = cv.convexHull(contour)
-
-        #     # Draw the convex hull around the cube
-        #     cv.drawContours(frame, [hull], -1, (0, 255, 0), 2)  # Draw the convex hull in green
+            # Draw coordinate system
+            cv.arrowedLine(frame, (10,10), (10,60), (255,255,0), 2)
+            cv.putText(frame, 'Y', (15,60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 2)
+            cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
+            cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
             
-        #     # Calculating contour center x coordinate
-        #     M = cv.moments(contour)
-    
-        #     # Calculate centroid x
-        #     if M["m00"] != 0:
-        #         cx = int(M["m10"] / M["m00"])
-        #     else:
-        #         cx = 0
-                
-        #     is_cx_calculated = True
-
+            # Draw detection rectangle
+            cv.rectangle(frame, (100, 100), (width-100, height-100), (255,0,255), 2)
+            cv.line(frame, (width//2, 100), (width//2, height-100), (255,0,255),2)
             
-        #     if cv.contourArea(contour) > 100:
-        #         mask = cv.inRange(result, (1, 1, 1), (255, 255, 255))
-        #         # mean_hsv = np.round(cv.mean(result, mask=mask)[:3])
-        #         #print("len approx", len(approx))
-        #         if len(approx) == 4:
-        #             # area = cv.contourArea(contour)                    
-        #             print("Contour")
-        #             approx = sort_points(approx,4)
-        #             approx_stacked.append(approx)
-
-        #             if len(approx_stacked) > 3:
-        #                 approx_stacked.pop(0)
-                    
-        #             # print("Number of Points Stacked:", len(approx_stacked))
-        #             # print("===========================")
-        #             # print(approx_stacked)
-        #             # print("===========================")
-                    
-        #             mean_points = np.mean(approx_stacked, axis=0).astype(int)
-        #             mean_points_formatted = [np.array([point], dtype=np.int32) for point in mean_points]
-                    
-        #             approx = mean_points_formatted
-        #             #approx = np.mean(approx_stacked, axis=0)
-                    
-        #             try:
-        #                 # Calculating coords and angles
-        #                 if coordinates != 0 :
-        #                     previous_x = coordinates[0]
-                            
-        #                 coordinates, angles = coords(cube_points, approx, frame)
-                        
-        #                 # Calculating speed of the cube or other object
-                        
-        #                 if coordinates != 0:
-        #                     deltaX = previous_x - coordinates[0] 
-        #                     object_speed = round(deltaX / (1/fps),2)
-        #                     #print("Speed:",object_speed)
-                        
-        #             except Exception as e:
-        #                 print(f"Coordinates error: {e}")
-        #         elif len(approx) > 4:
-        #             while len(approx) > 4:
-        #                 epsilon *= 1.1
-        #                 approx = cv.approxPolyDP(contour, epsilon, True)
-        #         else:
-        #             print("Error - incorrect number of corners")
-                
-                
-        #         corner_cnt = 1
-        #         for corner in approx:
-        #             x, y = corner.ravel()
-        #             cv.circle(frame, (x, y), 5, (0, 0, 255), -1)
-        #             cv.putText(frame, str(corner_cnt), (x + 10,y + 10), cv.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2, cv.LINE_AA)
-        #             corner_cnt += 1
-                    
-                        
-        # Draw coordinate system
-        cv.arrowedLine(frame, (10,10), (10,60), (255,255,0), 2)
-        cv.putText(frame, 'Y', (15,60), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), 2)
-        cv.arrowedLine(frame, (10,10), (60,10), (255,0,255), 2)
-        cv.putText(frame, 'X', (50,30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,255), 2)
         
-        cv.imshow('img1',frame)
-        #cv.imshow('edges',edges)  
-        
-        print(coordinates, angles)
-        edges = 0
-        
-        if coordinates != 0:
-            return coordinates, angles[0], frame, edges
+            
+            
+            cv.imshow('img1',frame)
+            
+            return coordinates, angles, isInside, isAtMiddlePoint
         else:
-            return -1, -1, frame, edges
+            cv.imshow('img1',frame)
+            return None, None, None, None
+        
+        
+                        
+        
+        
+        
+        
             
             
         
