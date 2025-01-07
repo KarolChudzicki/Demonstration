@@ -377,17 +377,30 @@ def run():
             
             
             cv.imshow('img1',frame)
+            cv.imshow('adaptive', frame_thresh)
+            cv.imshow('eroded', eroded)
+            cv.imshow('eroded and dilated', dilated)
+            cv.imshow('canny', edges)
             
             return coordinates, angles, isAtFirstLine, isAtSecondLine
         else:
+             # Draw detection rectangle
+            cv.rectangle(frame, (100, 50), (roi[2]-100, roi[3]-50), (255,0,255), 2)
+            cv.line(frame, (roi[2]//2, 50), (roi[2]//2, roi[3]-50), (255,0,255),2)
             cv.imshow('img1',frame)
-            
+            cv.imshow('adaptive', frame_thresh)
+            cv.imshow('eroded', eroded)
+            cv.imshow('eroded and dilated', dilated)
+            cv.imshow('canny', edges)
+           
             return None, None, None, None
         
      
     else:
         print("Camera error")
         
+initSlider()
+while True: 
+    run()
+    cv.waitKey(1)
 
-
-    

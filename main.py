@@ -11,7 +11,7 @@ import ur
 import conveyor_belt
 
 # Classes
-URRobot = ur.URRobot()
+#URRobot = ur.URRobot()
 conveyorBelt = conveyor_belt.conveyorBelt()
 gripper = gripper.Gripper()
 camera.initSlider()
@@ -40,7 +40,7 @@ def go_to_cube():
 
 def get_new_tool_orientation_and_z():
     global base_orientation
-    base_orientation = URRobot.current_Position()[2:]
+    base_orientation = 0 #URRobot.current_Position()[2:]
     print("New base orientation:", base_orientation)
     
 def stop_program():
@@ -58,7 +58,17 @@ def button_open_gripper():
 def button_close_gripper():
     gripper.open_close(POSITION_REQUEST=0, SPEED=10, FORCE=1)
     
-def run_conveyor():
+def run_conveyor100():
+    conveyorBelt.setDirection(0)
+    conveyorBelt.setSpeed(100)
+    conveyorBelt.start()
+    
+def run_conveyor200():
+    conveyorBelt.setDirection(0)
+    conveyorBelt.setSpeed(200)
+    conveyorBelt.start()
+    
+def run_conveyor300():
     conveyorBelt.setDirection(0)
     conveyorBelt.setSpeed(300)
     conveyorBelt.start()
@@ -66,9 +76,6 @@ def run_conveyor():
 def stop_conveyor():
     conveyorBelt.stop()
 
-def reset():
-    firstTimerToggle = False
-    secondTimerToggle = False
     
 
 go_button = tk.Button(root, text="Go to cube", width=20, height=2, command = go_to_cube)
@@ -89,14 +96,17 @@ open_gripper.pack(pady=10)
 close_gripper = tk.Button(root, text="Close gripper", width=20, height=2, command = button_close_gripper)
 close_gripper.pack(pady=10)
 
-run_conv = tk.Button(root, text="Run conveyor", width=20, height=2, command = run_conveyor)
-run_conv.pack(pady=10)
+run_conv100 = tk.Button(root, text="Run conveyor 100", width=20, height=2, command = run_conveyor100)
+run_conv100.pack(pady=10)
+
+run_conv200 = tk.Button(root, text="Run conveyor 200", width=20, height=2, command = run_conveyor200)
+run_conv200.pack(pady=10)
+
+run_conv300 = tk.Button(root, text="Run conveyor 300", width=20, height=2, command = run_conveyor300)
+run_conv300.pack(pady=10)
 
 stop_conv = tk.Button(root, text="Stop conveyor", width=20, height=2, command = stop_conveyor)
 stop_conv.pack(pady=10)
-
-reset_values = tk.Button(root, text="Reset values", width=20, height=2, command = reset)
-reset_values.pack(pady=10)    
 
 # ==================== POSITIONS ====================
 homePosition = [-0.470, 0.708, -0.084, -1.18, -1.21, -1.1958]
@@ -135,22 +145,22 @@ def go_to_cube(newPositionX, cubePositionAtMiddleLine, tcubeHome, angleOfCube):
                    base_orientation[2],
                    base_orientation[3]]
     print(cube_coords)
-    time.sleep(tcubeHome)
-    timeToCatchCube = 3 - tcubeHome
-    URRobot.movel(cube_coords, 10, 10, timeToCatchCube)
-    time.sleep(timeToCatchCube - 0.1)
-    gripper.open_close(POSITION_REQUEST=0, SPEED=100, FORCE=1)
-    time.sleep(1)
-    # Move up 10cm
-    cube_coords[2] += 0.1
-    URRobot.movel(cube_coords, 0.1, 0.1, 2)
-    time.sleep(2)
-    URRobot.movel(dropPointVertical, 0.1, 0.1, 3)
-    time.sleep(3)
-    gripper.open_close(POSITION_REQUEST=85, SPEED=100, FORCE=1)
-    time.sleep(1)
-    URRobot.movel(homePositionVertical, 0.1, 0.1, 4)
-    time.sleep(4)
+    # time.sleep(tcubeHome)
+    # timeToCatchCube = 3 - tcubeHome
+    # URRobot.movel(cube_coords, 10, 10, timeToCatchCube)
+    # time.sleep(timeToCatchCube - 0.1)
+    # gripper.open_close(POSITION_REQUEST=0, SPEED=100, FORCE=1)
+    # time.sleep(1)
+    # # Move up 10cm
+    # cube_coords[2] += 0.1
+    # URRobot.movel(cube_coords, 0.1, 0.1, 2)
+    # time.sleep(2)
+    # URRobot.movel(dropPointVertical, 0.1, 0.1, 3)
+    # time.sleep(3)
+    # gripper.open_close(POSITION_REQUEST=85, SPEED=100, FORCE=1)
+    # time.sleep(1)
+    # URRobot.movel(homePositionVertical, 0.1, 0.1, 4)
+    # time.sleep(4)
 
 
 # ==================== MAIN LOOP ====================
@@ -159,7 +169,7 @@ gripper.open_close(POSITION_REQUEST=85, SPEED=50, FORCE=1)
 
 
 # Go to home position
-URRobot.movel(homePositionVertical, 2, 3, 3)
+#URRobot.movel(homePositionVertical, 2, 3, 3)
 
 #Angles
 angle_sum = 0
@@ -207,10 +217,9 @@ while not stop:
             dTime = abs(time.time() - time1)
             xpos2 = camera_frame_coords[1]
             dxpos = abs(xpos1 - xpos2)
-            print("Dxpos: ", dxpos)
             cubeSpeed = round(dxpos/dTime,4)
             newPositionX = round(cubeSpeed * 3, 4) # Velocity times 2 seconds = Position of the cube in 2 seconds
-            print("Cube speed: ",cubeSpeed, "X pos inc: ", newPositionX)
+            print("Cube speed: ",cubeSpeed, "DTIME: ", dTime)
             secondTimerToggle = True
             cubePositionAtMiddleLine = camera_frame_coords   
             
@@ -231,7 +240,8 @@ while not stop:
     
     if firstTimerToggle and secondTimerToggle:
         print(angleOfCube)
-        go_to_cube(newPositionX, cubePositionAtMiddleLine, tcubeHome, angleOfCube)
+        #go_to_cube(newPositionX, cubePositionAtMiddleLine, tcubeHome, angleOfCube)
+        time.sleep(10)
         firstTimerToggle = False
         secondTimerToggle = False
 
